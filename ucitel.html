@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KvízApp – Učitel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --bg:     #1a1a2e;
+      --card:   #16213e;
+      --card2:  #0f3460;
+      --accent: #e94560;
+      --text:   #eaeaea;
+      --muted:  #8892a4;
+      --green:  #2ecc71;
+      --red:    #e74c3c;
+      --blue:   #3498db;
+      --yellow: #f1c40f;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .hidden { display: none !important; }
+
+    /* ── Header ── */
+    .header {
+      background: var(--card); padding: 1rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 2px solid var(--accent); position: sticky; top: 0; z-index: 10;
+    }
+    .logo { font-size: 1.4rem; font-weight: 900; color: var(--accent); }
+    .logo span { color: var(--text); }
+    .back-btn {
+      background: none; border: 1px solid var(--muted); color: var(--muted);
+      padding: .4rem .9rem; border-radius: 6px; cursor: pointer;
+      font-family: 'Nunito', sans-serif; font-size: .9rem;
+    }
+    .back-btn:hover { border-color: var(--text); color: var(--text); }
+
+    /* ── Content ── */
+    .content { max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-block; padding: .7rem 1.4rem; border-radius: 8px; border: none;
+      cursor: pointer; font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 700;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:hover { opacity: .9; } .btn:active { transform: scale(.97); }
+    .btn-primary  { background: var(--accent); color: white; }
+    .btn-success  { background: var(--green);  color: white; }
+    .btn-outline  { background: transparent; border: 2px solid var(--accent); color: var(--accent); }
+    .btn-danger   { background: var(--red);    color: white; }
+    .btn-block    { display: block; width: 100%; text-align: center; margin-top: .5rem; }
+    .btn-sm       { padding: .4rem .8rem; font-size: .85rem; }
+
+    /* ── Quiz list ── */
+    .section-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 1rem; }
+    .quiz-list { display: flex; flex-direction: column; gap: .75rem; }
+    .quiz-card {
+      background: var(--card); border-radius: 10px; padding: 1rem 1.25rem;
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+    }
+    .quiz-card-title { font-weight: 800; font-size: 1.05rem; }
+    .quiz-card-meta  { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+    .quiz-card-actions { display: flex; gap: .5rem; flex-shrink: 0; }
+    .empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+    .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+    /* ── Form ── */
+    .editor-card { background: var(--card); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+    .form-group  { margin-bottom: 1rem; }
+    label {
+      display: block; font-size: .85rem; font-weight: 700; color: var(--muted);
+      margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+    input[type="text"], input[type="number"], textarea {
+      width: 100%; background: var(--bg); border: 1px solid #2a2a4a;
+      border-radius: 8px; padding: .7rem .9rem; color: var(--text);
+      font-family: 'Nunito', sans-serif; font-size: 1rem; outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 70px; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+
+    /* ── Choices grid ── */
+    .choices-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .choice-item {
+      background: var(--bg); border: 2px solid transparent;
+      border-radius: 8px; padding: .5rem .75rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .choice-item.correct { border-color: var(--green); }
+    .choice-letter {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .85rem; flex-shrink: 0;
+    }
+    .cA { background: var(--red);   color: white; }
+    .cB { background: var(--blue);  color: white; }
+    .cC { background: #e67e22;      color: white; }
+    .cD { background: var(--green); color: white; }
+    .choice-item input[type="text"]     { background: transparent; border: none; padding: 0; }
+    .choice-item input[type="checkbox"] { width: auto; cursor: pointer; accent-color: var(--green); }
+    .hint { font-size: .78rem; color: var(--muted); margin-top: .35rem; }
+
+    /* ── Question list ── */
+    .question-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
+    .question-item {
+      background: var(--card); border-radius: 8px; padding: .85rem 1rem;
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .question-num {
+      width: 32px; height: 32px; background: var(--card2); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .85rem; flex-shrink: 0;
+    }
+    .question-text { flex: 1; font-weight: 600; }
+    .question-meta { font-size: .78rem; color: var(--muted); }
+
+    /* ── Session – PIN ── */
+    .pin-display {
+      text-align: center; background: var(--card); border-radius: 14px;
+      padding: 1.75rem; margin-bottom: 1.5rem;
+    }
+    .pin-label  { font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+    .pin-number { font-size: 3.5rem; font-weight: 900; letter-spacing: .2em; color: var(--accent); line-height: 1.1; }
+    .pin-url    { font-size: .8rem; color: var(--muted); margin-top: .3rem; word-break: break-all; }
+    #qr-canvas  { margin: .75rem auto 0; display: block; border-radius: 8px; }
+
+    /* ── Session – Lobby ── */
+    .players-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
+    .player-count { background: var(--card2); padding: .3rem .8rem; border-radius: 20px; font-weight: 700; }
+    .players-grid { display: flex; flex-wrap: wrap; gap: .4rem; min-height: 60px; }
+    .player-chip {
+      background: var(--card); border-radius: 20px; padding: .3rem .75rem;
+      font-size: .85rem; font-weight: 600; animation: popIn .2s ease-out;
+    }
+    @keyframes popIn { from { transform: scale(.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    /* ── Session – Live question ── */
+    .live-question { background: var(--card); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+    .live-q-num   { font-size: .78rem; color: var(--muted); margin-bottom: .4rem; }
+    .live-q-text  { font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem; }
+    .timer-bar    { height: 8px; background: var(--card2); border-radius: 4px; overflow: hidden; margin: .75rem 0; }
+    .timer-fill   { height: 100%; background: var(--green); border-radius: 4px; transition: width 1s linear, background .5s; }
+    .answer-row   { display: flex; align-items: center; justify-content: space-between; }
+    .answer-count { font-size: 1.5rem; font-weight: 900; color: var(--accent); }
+
+    /* ── Leaderboard ── */
+    .leaderboard  { display: flex; flex-direction: column; gap: .4rem; }
+    .lb-item {
+      background: var(--card); border-radius: 8px; padding: .75rem 1rem;
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .lb-rank  { font-size: 1.1rem; font-weight: 900; width: 30px; text-align: center; }
+    .lb-name  { flex: 1; font-weight: 700; }
+    .lb-score { font-weight: 900; color: var(--accent); font-size: 1.05rem; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+      background: #333; color: white; padding: .7rem 1.5rem; border-radius: 8px;
+      font-weight: 600; z-index: 1000; animation: toastIn .3s ease-out; white-space: nowrap;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ VIEW: DASHBOARD ══════════════ -->
+<div id="view-dashboard" class="view">
+  <div class="header">
+    <div class="logo">Kvíz<span>App</span></div>
+  </div>
+  <div class="content">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+      <div class="section-title">Moje kvízy</div>
+      <button class="btn btn-primary" onclick="showNewQuizForm()">+ Nový kvíz</button>
+    </div>
+
+    <div id="new-quiz-form" class="editor-card hidden" style="margin-bottom:1rem;">
+      <div class="form-group">
+        <label>Název kvízu</label>
+        <input type="text" id="new-quiz-title" placeholder="Např. Buněčné dělení – opakování"
+               onkeydown="if(event.key==='Enter') createQuiz()">
+      </div>
+      <div style="display:flex; gap:.5rem;">
+        <button class="btn btn-success" onclick="createQuiz()">Vytvořit</button>
+        <button class="btn btn-outline" onclick="hideNewQuizForm()">Zrušit</button>
+      </div>
+    </div>
+
+    <div id="quiz-list" class="quiz-list">
+      <div class="empty"><div class="empty-icon">⏳</div><div>Načítám…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ VIEW: EDITOR ══════════════ -->
+<div id="view-editor" class="view hidden">
+  <div class="header">
+    <button class="back-btn" onclick="saveAndGoBack()">← Zpět</button>
+    <div class="logo">Kvíz<span>App</span></div>
+    <button class="btn btn-success btn-sm" onclick="saveAndGoBack()">Uložit</button>
+  </div>
+  <div class="content">
+    <div class="form-group">
+      <label>Název kvízu</label>
+      <input type="text" id="edit-quiz-title" placeholder="Název kvízu">
+    </div>
+
+    <div class="section-title" style="margin-top:1.25rem;">Otázky</div>
+    <div id="question-list" class="question-list"></div>
+
+    <!-- Přidat otázku -->
+    <div class="editor-card">
+      <div class="section-title" style="font-size:1rem; margin-bottom:.75rem;">Přidat otázku</div>
+      <div class="form-group">
+        <label>Text otázky</label>
+        <textarea id="q-text" placeholder="Napiš otázku…" rows="2"></textarea>
+      </div>
+      <div class="row-2">
+        <div class="form-group">
+          <label>Čas (sekund)</label>
+          <input type="number" id="q-time" value="20" min="5" max="120">
+        </div>
+        <div class="form-group">
+          <label>Body</label>
+          <input type="number" id="q-points" value="1000" min="100" max="2000" step="100">
+        </div>
+      </div>
+      <label style="margin-bottom:.5rem;">Odpovědi (✓ = správná)</label>
+      <div class="choices-grid">
+        <div class="choice-item" id="cw0"><div class="choice-letter cA">A</div><input type="text" id="c0" placeholder="Odpověď A"><input type="checkbox" id="ok0" title="Správná"></div>
+        <div class="choice-item" id="cw1"><div class="choice-letter cB">B</div><input type="text" id="c1" placeholder="Odpověď B"><input type="checkbox" id="ok1" title="Správná"></div>
+        <div class="choice-item" id="cw2"><div class="choice-letter cC">C</div><input type="text" id="c2" placeholder="Odpověď C"><input type="checkbox" id="ok2" title="Správná"></div>
+        <div class="choice-item" id="cw3"><div class="choice-letter cD">D</div><input type="text" id="c3" placeholder="Odpověď D"><input type="checkbox" id="ok3" title="Správná"></div>
+      </div>
+      <div class="hint">Zaškrtni checkbox u správné odpovědi. Stačí 2 odpovědi.</div>
+      <button class="btn btn-primary btn-block" style="margin-top:1rem;" onclick="addQuestion()">+ Přidat otázku</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ VIEW: SESSION ══════════════ -->
+<div id="view-session" class="view hidden">
+  <div class="header">
+    <button class="back-btn" onclick="confirmEndSession()">✕ Ukončit</button>
+    <div class="logo">Kvíz<span>App</span></div>
+    <div id="sess-progress" style="font-size:.85rem; color:var(--muted);"></div>
+  </div>
+  <div class="content">
+
+    <!-- LOBBY -->
+    <div id="sess-lobby">
+      <div class="pin-display">
+        <div class="pin-label">Kód pro připojení</div>
+        <div class="pin-number" id="sess-pin">------</div>
+        <div class="pin-url" id="sess-url"></div>
+        <canvas id="qr-canvas"></canvas>
+      </div>
+      <div class="players-header">
+        <div class="section-title" style="margin:0;">Čekárna</div>
+        <div class="player-count"><span id="player-count">0</span> žáků</div>
+      </div>
+      <div class="players-grid" id="players-grid"></div>
+      <button class="btn btn-success btn-block" style="margin-top:1.5rem; font-size:1.1rem; padding:1rem;" onclick="startQuiz()">
+        ▶ Spustit kvíz
+      </button>
+    </div>
+
+    <!-- LIVE QUESTION -->
+    <div id="sess-question" class="hidden">
+      <div class="live-question">
+        <div class="live-q-num" id="live-q-num"></div>
+        <div class="live-q-text" id="live-q-text"></div>
+        <div class="timer-bar"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
+        <div class="answer-row">
+          <span style="color:var(--muted); font-size:.9rem;">Odpovědělo:</span>
+          <span class="answer-count"><span id="ans-count">0</span> / <span id="ans-total">0</span></span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" style="font-size:1.05rem; padding:.9rem;" onclick="teacherShowLeaderboard()">
+        📊 Zobrazit žebříček
+      </button>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div id="sess-leaderboard" class="hidden">
+      <div class="section-title" style="margin-bottom:1rem; text-align:center;">🏆 Žebříček</div>
+      <div id="lb-list" class="leaderboard"></div>
+      <button id="btn-next" class="btn btn-primary btn-block" style="margin-top:1.25rem; font-size:1.05rem; padding:.9rem;" onclick="nextQuestion()">
+        Další otázka →
+      </button>
+      <button id="btn-finish" class="btn btn-success btn-block hidden" onclick="finishQuiz()">
+        🎉 Ukončit kvíz
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+const S = {
+  quizzes:      [],
+  currentQuiz:  null,
+  questions:    [],
+  session:      null,
+  players:      [],
+  currentQIdx:  -1,
+  playersSub:   null,
+  responsesSub: null,
+  timerInterval:null,
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGACE
+// ═══════════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('[id^="view-"]').forEach(v => v.classList.add('hidden'))
+  document.getElementById('view-' + name).classList.remove('hidden')
+}
+
+async function goToDashboard() {
+  cleanupSession()
+  showView('dashboard')
+  await loadQuizzes()
+}
+
+// ═══════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════
+async function loadQuizzes() {
+  const { data, error } = await sb
+    .from('quizzes').select('id, title, created_at')
+    .order('created_at', { ascending: false })
+  if (error) { showToast('Chyba načtení'); return }
+  S.quizzes = data || []
+  renderQuizList()
+}
+
+function renderQuizList() {
+  const el = document.getElementById('quiz-list')
+  if (!S.quizzes.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div>Zatím žádné kvízy. Vytvořte první!</div></div>`
+    return
+  }
+  el.innerHTML = S.quizzes.map(q => `
+    <div class="quiz-card">
+      <div>
+        <div class="quiz-card-title">${esc(q.title)}</div>
+        <div class="quiz-card-meta">${fmtDate(q.created_at)}</div>
+      </div>
+      <div class="quiz-card-actions">
+        <button class="btn btn-outline btn-sm" onclick="openEditor('${q.id}')">✏️ Upravit</button>
+        <button class="btn btn-success btn-sm" onclick="openSessionSetup('${q.id}')">▶ Spustit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteQuiz('${q.id}')">🗑</button>
+      </div>
+    </div>`).join('')
+}
+
+function showNewQuizForm() {
+  document.getElementById('new-quiz-form').classList.remove('hidden')
+  document.getElementById('new-quiz-title').focus()
+}
+function hideNewQuizForm() {
+  document.getElementById('new-quiz-form').classList.add('hidden')
+  document.getElementById('new-quiz-title').value = ''
+}
+async function createQuiz() {
+  const title = document.getElementById('new-quiz-title').value.trim()
+  if (!title) { showToast('Zadej název'); return }
+  const { data, error } = await sb.from('quizzes').insert({ title }).select().single()
+  if (error) { showToast('Chyba vytvoření'); return }
+  hideNewQuizForm()
+  openEditor(data.id)
+}
+async function deleteQuiz(id) {
+  if (!confirm('Opravdu smazat kvíz včetně otázek?')) return
+  await sb.from('quizzes').delete().eq('id', id)
+  S.quizzes = S.quizzes.filter(q => q.id !== id)
+  renderQuizList()
+}
+
+// ═══════════════════════════════════════════════
+//  EDITOR
+// ═══════════════════════════════════════════════
+async function openEditor(quizId) {
+  let quiz = S.quizzes.find(q => q.id === quizId)
+  if (!quiz) quiz = (await sb.from('quizzes').select('*').eq('id', quizId).single()).data
+  S.currentQuiz = quiz
+  document.getElementById('edit-quiz-title').value = quiz.title
+
+  const { data: qs } = await sb
+    .from('questions').select('*, choices(*)')
+    .eq('quiz_id', quizId).order('order_index')
+  S.questions = qs || []
+  renderQuestionList()
+  showView('editor')
+}
+
+function renderQuestionList() {
+  const el = document.getElementById('question-list')
+  if (!S.questions.length) {
+    el.innerHTML = '<div style="color:var(--muted); font-size:.9rem; margin-bottom:.5rem;">Zatím žádné otázky.</div>'
+    return
+  }
+  el.innerHTML = S.questions.map((q, i) => `
+    <div class="question-item">
+      <div class="question-num">${i + 1}</div>
+      <div style="flex:1">
+        <div class="question-text">${esc(q.text)}</div>
+        <div class="question-meta">⏱ ${q.time_limit}s · ${q.points} bodů · ${q.choices?.length || 0} možností</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${q.id}')">🗑</button>
+    </div>`).join('')
+}
+
+async function addQuestion() {
+  const text   = document.getElementById('q-text').value.trim()
+  const time   = parseInt(document.getElementById('q-time').value)   || 20
+  const points = parseInt(document.getElementById('q-points').value) || 1000
+
+  if (!text) { showToast('Zadej text otázky'); return }
+
+  const choices = [0,1,2,3].map(i => ({
+    text:        document.getElementById('c' + i).value.trim(),
+    is_correct:  document.getElementById('ok' + i).checked,
+    order_index: i
+  })).filter(c => c.text)
+
+  if (choices.length < 2) { showToast('Zadej alespoň 2 odpovědi'); return }
+  if (!choices.some(c => c.is_correct)) { showToast('Označ správnou odpověď (✓)'); return }
+
+  const { data: q, error } = await sb.from('questions')
+    .insert({ quiz_id: S.currentQuiz.id, text, time_limit: time, points, order_index: S.questions.length })
+    .select().single()
+  if (error) { showToast('Chyba uložení'); return }
+
+  await sb.from('choices').insert(choices.map(c => ({ ...c, question_id: q.id })))
+
+  // Reset formuláře
+  document.getElementById('q-text').value = ''
+  ;[0,1,2,3].forEach(i => {
+    document.getElementById('c' + i).value  = ''
+    document.getElementById('ok' + i).checked = false
+    document.getElementById('cw' + i).classList.remove('correct')
+  })
+
+  await openEditor(S.currentQuiz.id)
+  showToast('Otázka přidána ✓')
+}
+
+async function deleteQuestion(id) {
+  await sb.from('questions').delete().eq('id', id)
+  S.questions = S.questions.filter(q => q.id !== id)
+  renderQuestionList()
+}
+
+async function saveAndGoBack() {
+  const title = document.getElementById('edit-quiz-title').value.trim()
+  if (title && title !== S.currentQuiz.title) {
+    await sb.from('quizzes').update({ title }).eq('id', S.currentQuiz.id)
+  }
+  await goToDashboard()
+}
+
+// ═══════════════════════════════════════════════
+//  SESSION – SETUP
+// ═══════════════════════════════════════════════
+async function openSessionSetup(quizId) {
+  const { data: quiz }  = await sb.from('quizzes').select('*').eq('id', quizId).single()
+  const { data: questions } = await sb.from('questions').select('*, choices(*)')
+    .eq('quiz_id', quizId).order('order_index')
+
+  if (!questions?.length) { showToast('Přidej nejprve alespoň 1 otázku!'); return }
+
+  S.currentQuiz = quiz
+  S.questions   = questions
+  S.players     = []
+  S.currentQIdx = -1
+
+  const pin = await generateUniquePin()
+
+  const { data: session } = await sb.from('sessions')
+    .insert({ quiz_id: quizId, quiz_title: quiz.title, pin, status: 'waiting', current_question_index: -1, total_questions: questions.length })
+    .select().single()
+  S.session = session
+
+  // PIN + URL
+  document.getElementById('sess-pin').textContent  = pin
+  const studentUrl = window.location.origin + (window.location.pathname.replace('ucitel.html','')) + 'zak.html?pin=' + pin
+  document.getElementById('sess-url').textContent  = studentUrl
+
+  // QR kód
+  QRCode.toCanvas(document.getElementById('qr-canvas'), studentUrl, {
+    width: 140, margin: 1, color: { light: '#16213e', dark: '#eaeaea' }
+  })
+
+  // Reset session views
+  document.getElementById('sess-lobby').classList.remove('hidden')
+  document.getElementById('sess-question').classList.add('hidden')
+  document.getElementById('sess-leaderboard').classList.add('hidden')
+  document.getElementById('players-grid').innerHTML = ''
+  document.getElementById('player-count').textContent = '0'
+  document.getElementById('sess-progress').textContent = ''
+
+  showView('session')
+  subscribeToPlayers(session.id)
+}
+
+async function generateUniquePin() {
+  let pin, tries = 0
+  do {
+    pin = Math.floor(100000 + Math.random() * 900000).toString()
+    const { data } = await sb.from('sessions').select('id').eq('pin', pin).eq('status', 'waiting')
+    if (!data?.length) break
+  } while (++tries < 10)
+  return pin
+}
+
+function subscribeToPlayers(sessionId) {
+  if (S.playersSub) S.playersSub.unsubscribe()
+  S.playersSub = sb.channel('players-' + sessionId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'players', filter: `session_id=eq.${sessionId}` },
+      payload => {
+        S.players.push(payload.new)
+        document.getElementById('player-count').textContent = S.players.length
+        const chip = Object.assign(document.createElement('div'), {
+          className: 'player-chip', textContent: payload.new.nickname
+        })
+        document.getElementById('players-grid').appendChild(chip)
+      })
+    .subscribe()
+}
+
+// ═══════════════════════════════════════════════
+//  SESSION – PRŮBĚH
+// ═══════════════════════════════════════════════
+async function startQuiz() {
+  if (!S.players.length) { showToast('Čekej na hráče!'); return }
+  document.getElementById('sess-lobby').classList.add('hidden')
+  await nextQuestion()
+}
+
+async function nextQuestion() {
+  S.currentQIdx++
+  const q = S.questions[S.currentQIdx]
+  if (!q) { await finishQuiz(); return }
+
+  await sb.from('sessions').update({
+    status: 'active',
+    current_question_index: S.currentQIdx,
+    question_started_at: new Date().toISOString()
+  }).eq('id', S.session.id)
+
+  document.getElementById('sess-leaderboard').classList.add('hidden')
+  document.getElementById('sess-question').classList.remove('hidden')
+  document.getElementById('live-q-num').textContent  = `Otázka ${S.currentQIdx + 1} / ${S.questions.length}`
+  document.getElementById('live-q-text').textContent = q.text
+  document.getElementById('ans-total').textContent   = S.players.length
+  document.getElementById('ans-count').textContent   = '0'
+  document.getElementById('sess-progress').textContent = `${S.currentQIdx + 1}/${S.questions.length}`
+
+  startTimer(q.time_limit)
+  subscribeToResponses(S.session.id, q.id)
+}
+
+function startTimer(seconds) {
+  clearInterval(S.timerInterval)
+  const fill = document.getElementById('timer-fill')
+  let rem = seconds
+  fill.style.width = '100%'
+  fill.style.background = 'var(--green)'
+  S.timerInterval = setInterval(() => {
+    rem--
+    const pct = Math.max(0, (rem / seconds) * 100)
+    fill.style.width = pct + '%'
+    fill.style.background = pct < 30 ? 'var(--red)' : pct < 60 ? 'var(--yellow)' : 'var(--green)'
+    if (rem <= 0) clearInterval(S.timerInterval)
+  }, 1000)
+}
+
+function subscribeToResponses(sessionId, questionId) {
+  if (S.responsesSub) S.responsesSub.unsubscribe()
+  S.responsesSub = sb.channel('resp-' + questionId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'responses', filter: `session_id=eq.${sessionId}` },
+      async () => {
+        const { count } = await sb.from('responses').select('*', { count: 'exact' })
+          .eq('session_id', sessionId).eq('question_id', questionId)
+        const el = document.getElementById('ans-count')
+        if (el) el.textContent = count || 0
+      })
+    .subscribe()
+}
+
+async function teacherShowLeaderboard() {
+  clearInterval(S.timerInterval)
+  await sb.from('sessions').update({ status: 'leaderboard' }).eq('id', S.session.id)
+
+  const { data: players } = await sb.from('players')
+    .select('nickname, score').eq('session_id', S.session.id)
+    .order('score', { ascending: false }).limit(10)
+
+  const medals = ['🥇','🥈','🥉']
+  document.getElementById('lb-list').innerHTML = (players||[]).map((p,i) => `
+    <div class="lb-item">
+      <div class="lb-rank">${medals[i] || (i+1)}</div>
+      <div class="lb-name">${esc(p.nickname)}</div>
+      <div class="lb-score">${p.score.toLocaleString('cs-CZ')}</div>
+    </div>`).join('')
+
+  const isLast = S.currentQIdx >= S.questions.length - 1
+  document.getElementById('btn-next').classList.toggle('hidden', isLast)
+  document.getElementById('btn-finish').classList.toggle('hidden', !isLast)
+
+  document.getElementById('sess-question').classList.add('hidden')
+  document.getElementById('sess-leaderboard').classList.remove('hidden')
+}
+
+async function finishQuiz() {
+  await sb.from('sessions').update({ status: 'finished' }).eq('id', S.session.id)
+  cleanupSession()
+  showToast('Kvíz ukončen! 🎉')
+  setTimeout(() => goToDashboard(), 2000)
+}
+
+async function confirmEndSession() {
+  if (!confirm('Ukončit probíhající relaci?')) return
+  if (S.session) await sb.from('sessions').update({ status: 'finished' }).eq('id', S.session.id)
+  cleanupSession()
+  goToDashboard()
+}
+
+function cleanupSession() {
+  clearInterval(S.timerInterval)
+  if (S.playersSub)   { S.playersSub.unsubscribe();   S.playersSub   = null }
+  if (S.responsesSub) { S.responsesSub.unsubscribe();  S.responsesSub = null }
+  S.session = null; S.players = []; S.currentQIdx = -1
+}
+
+// ═══════════════════════════════════════════════
+//  UTILITY
+// ═══════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('cs-CZ', { day:'numeric', month:'long', year:'numeric' })
+}
+function showToast(msg) {
+  document.querySelector('.toast')?.remove()
+  const t = Object.assign(document.createElement('div'), { className:'toast', textContent:msg })
+  document.body.appendChild(t)
+  setTimeout(() => t.remove(), 2500)
+}
+
+// Highlight správné odpovědi v editoru
+;[0,1,2,3].forEach(i => {
+  document.getElementById('ok' + i).addEventListener('change', e => {
+    document.getElementById('cw' + i).classList.toggle('correct', e.target.checked)
+  })
+})
+
+// Start
+loadQuizzes()
+</script>
+</body>
+</html>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>KvízApp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --bg:     #1a1a2e;
+      --card:   #16213e;
+      --card2:  #0f3460;
+      --accent: #e94560;
+      --text:   #eaeaea;
+      --muted:  #8892a4;
+      --green:  #2ecc71;
+      --red:    #e74c3c;
+      --blue:   #3498db;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── View container ── */
+    .view {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      padding: 1.5rem 1.25rem; overflow-y: auto;
+    }
+    .hidden { display: none !important; }
+
+    /* ── JOIN ── */
+    .join-top { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .join-logo { text-align: center; margin-bottom: 2.5rem; }
+    .logo-text  { font-size: 2.4rem; font-weight: 900; color: var(--accent); }
+    .logo-text span { color: var(--text); }
+    .subtitle   { color: var(--muted); margin-top: .25rem; }
+
+    label {
+      display: block; font-size: .82rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin-bottom: .4rem;
+    }
+    input[type="text"] {
+      width: 100%; background: var(--card); border: 2px solid #2a2a4a;
+      border-radius: 12px; padding: .9rem 1rem; color: var(--text);
+      font-family: 'Nunito', sans-serif; font-size: 1.3rem; font-weight: 700;
+      outline: none; text-align: center; letter-spacing: .08em;
+      margin-bottom: 1rem; transition: border-color .15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .error-msg { color: var(--red); font-size: .9rem; text-align: center; margin-bottom: .75rem; min-height: 1.2em; }
+
+    .btn {
+      width: 100%; padding: 1rem; border-radius: 12px; border: none;
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+      font-size: 1.1rem; font-weight: 800;
+      transition: opacity .15s, transform .1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(.97); opacity: .9; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-success { background: var(--green);  color: white; }
+
+    /* ── LOBBY ── */
+    .lobby-center {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+    }
+    .avatar      { font-size: 5rem; margin-bottom: 1rem; }
+    .lobby-name  { font-size: 1.6rem; font-weight: 900; margin-bottom: .5rem; }
+    .pulse-wrap  { color: var(--muted); font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: .5rem; }
+    .pulse {
+      width: 10px; height: 10px; background: var(--green); border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.7)} }
+    .quiz-badge {
+      background: var(--card2); border-radius: 10px;
+      padding: .65rem 1.25rem; margin-top: 1.5rem;
+      font-weight: 700; font-size: .95rem;
+    }
+
+    /* ── QUESTION ── */
+    .q-header {
+      background: var(--card2); border-radius: 14px;
+      padding: 1.1rem 1rem; margin-bottom: .9rem; text-align: center;
+    }
+    .q-meta   { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+    .q-text   { font-size: 1.15rem; font-weight: 800; line-height: 1.3; margin-top: .35rem; }
+    .q-timer  { font-size: 1.5rem; font-weight: 900; color: var(--accent); margin-top: .4rem; }
+
+    .choices  { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .choice-btn {
+      border: none; border-radius: 14px; padding: 1rem .65rem;
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+      font-size: .95rem; font-weight: 800; color: white;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 88px; text-align: center;
+      line-height: 1.25; transition: transform .1s, opacity .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .choice-btn:active { transform: scale(.94); }
+    .choice-btn.answered { opacity: .45; pointer-events: none; }
+    .choice-btn.selected { outline: 4px solid white; opacity: 1; }
+    .cbA { background: #e74c3c; }
+    .cbB { background: #3498db; }
+    .cbC { background: #e67e22; }
+    .cbD { background: #27ae60; }
+    .cb-icon { font-size: 1.4rem; margin-bottom: .2rem; }
+    .cb-text { font-size: .88rem; }
+
+    /* ── RESULT ── */
+    .result-center {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+    }
+    .result-icon   { font-size: 5.5rem; margin-bottom: 1rem; }
+    .result-label  { font-size: 1.7rem; font-weight: 900; margin-bottom: .5rem; }
+    .result-pts    { font-size: 2.8rem; font-weight: 900; }
+    .result-pts.ok { color: var(--green); }
+    .result-pts.no { color: var(--red); }
+    .result-sub    { color: var(--muted); margin-top: .3rem; }
+    .result-total  { margin-top: 1.2rem; font-size: .95rem; color: var(--muted); }
+
+    /* ── LEADERBOARD ── */
+    .lb-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 1rem; text-align: center; }
+    .lb-list  { display: flex; flex-direction: column; gap: .5rem; }
+    .lb-item  {
+      background: var(--card); border-radius: 10px; padding: .8rem 1rem;
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .lb-item.me { background: var(--card2); border: 2px solid var(--accent); }
+    .lb-rank  { font-size: 1.2rem; font-weight: 900; width: 30px; text-align: center; }
+    .lb-name  { flex: 1; font-weight: 700; }
+    .lb-score { font-weight: 900; color: var(--accent); }
+    .lb-wait  { text-align: center; color: var(--muted); padding: 2rem; }
+
+    /* ── FINISHED ── */
+    .fin-center {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+    }
+    .fin-icon  { font-size: 5rem; margin-bottom: 1rem; }
+    .fin-title { font-size: 1.8rem; font-weight: 900; margin-bottom: .75rem; }
+    .fin-score { font-size: 3.2rem; font-weight: 900; color: var(--accent); }
+    .fin-sub   { color: var(--muted); margin-top: .4rem; }
+    .fin-rank  { margin-top: 1rem; font-size: .95rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<!-- ═══ JOIN ═══ -->
+<div id="view-join" class="view">
+  <div class="join-top">
+    <div class="join-logo">
+      <div class="logo-text">Kvíz<span>App</span></div>
+      <div class="subtitle">Připoj se ke kvízu</div>
+    </div>
+    <label>Kód kvízu (PIN)</label>
+    <input type="text" id="pin-input" placeholder="123456" maxlength="6" inputmode="numeric" autocomplete="off">
+    <label>Přezdívka</label>
+    <input type="text" id="nick-input" placeholder="Tvoje jméno" maxlength="20" autocomplete="off"
+           onkeydown="if(event.key==='Enter') joinSession()">
+    <div id="join-error" class="error-msg"></div>
+  </div>
+  <button class="btn btn-primary" onclick="joinSession()">Připojit se →</button>
+</div>
+
+<!-- ═══ LOBBY ═══ -->
+<div id="view-lobby" class="view hidden">
+  <div class="lobby-center">
+    <div class="avatar">🎮</div>
+    <div class="lobby-name" id="lobby-name"></div>
+    <div class="pulse-wrap"><div class="pulse"></div><span>Čekám na učitele…</span></div>
+    <div class="quiz-badge" id="lobby-quiz"></div>
+  </div>
+</div>
+
+<!-- ═══ QUESTION ═══ -->
+<div id="view-question" class="view hidden">
+  <div class="q-header">
+    <div class="q-meta" id="q-meta"></div>
+    <div class="q-text" id="q-text"></div>
+    <div class="q-timer" id="q-timer"></div>
+  </div>
+  <div class="choices" id="choices"></div>
+</div>
+
+<!-- ═══ RESULT ═══ -->
+<div id="view-result" class="view hidden">
+  <div class="result-center">
+    <div class="result-icon" id="res-icon"></div>
+    <div class="result-label" id="res-label"></div>
+    <div class="result-pts" id="res-pts"></div>
+    <div class="result-sub" id="res-sub"></div>
+    <div class="result-total" id="res-total"></div>
+  </div>
+</div>
+
+<!-- ═══ LEADERBOARD ═══ -->
+<div id="view-leaderboard" class="view hidden">
+  <div class="lb-title">🏆 Žebříček</div>
+  <div class="lb-list" id="lb-list"><div class="lb-wait">Načítám…</div></div>
+</div>
+
+<!-- ═══ FINISHED ═══ -->
+<div id="view-finished" class="view hidden">
+  <div class="fin-center">
+    <div class="fin-icon">🎉</div>
+    <div class="fin-title">Kvíz skončil!</div>
+    <div class="fin-score" id="fin-score"></div>
+    <div class="fin-sub">bodů celkem</div>
+    <div class="fin-rank" id="fin-rank"></div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// Stav
+let player      = null   // { id, nickname, score, session_id }
+let session     = null   // celý řádek z DB
+let curQuestion = null
+let qStartedAt  = null
+let answered    = false
+let timerInt    = null
+let sessionSub  = null
+
+// ═══════════════════════════════════════════════
+//  INIT – předvyplnit PIN z URL
+// ═══════════════════════════════════════════════
+;(function init() {
+  const pin = new URLSearchParams(window.location.search).get('pin')
+  if (pin) {
+    document.getElementById('pin-input').value = pin
+    setTimeout(() => document.getElementById('nick-input').focus(), 100)
+  }
+})()
+
+function showView(n) {
+  document.querySelectorAll('[id^="view-"]').forEach(v => v.classList.add('hidden'))
+  document.getElementById('view-' + n).classList.remove('hidden')
+}
+
+// ═══════════════════════════════════════════════
+//  PŘIPOJENÍ
+// ═══════════════════════════════════════════════
+async function joinSession() {
+  const pin  = document.getElementById('pin-input').value.trim()
+  const nick = document.getElementById('nick-input').value.trim()
+  const err  = document.getElementById('join-error')
+  err.textContent = ''
+
+  if (!pin || pin.length !== 6)  { err.textContent = 'Zadej 6místný PIN.';       return }
+  if (!nick)                      { err.textContent = 'Zadej přezdívku.';          return }
+  if (nick.length < 2)            { err.textContent = 'Přezdívka je příliš krátká.'; return }
+
+  // Najdi relaci
+  const { data: sess, error } = await sb.from('sessions')
+    .select('*').eq('pin', pin).eq('status', 'waiting').single()
+  if (error || !sess) { err.textContent = 'Kvíz nenalezen nebo již probíhá.'; return }
+
+  // Přidej hráče
+  const { data: p, error: pErr } = await sb.from('players')
+    .insert({ session_id: sess.id, nickname: nick, score: 0 }).select().single()
+  if (pErr) { err.textContent = 'Chyba připojení – zkus to znovu.'; return }
+
+  player  = p
+  session = sess
+
+  document.getElementById('lobby-name').textContent = nick
+  document.getElementById('lobby-quiz').textContent = sess.quiz_title || 'Kvíz'
+  showView('lobby')
+  subscribeToSession(sess.id)
+}
+
+// ═══════════════════════════════════════════════
+//  REALTIME – sleduj změny relace
+// ═══════════════════════════════════════════════
+function subscribeToSession(sessionId) {
+  sessionSub = sb.channel('sess-watch-' + sessionId)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'sessions',
+      filter: `id=eq.${sessionId}`
+    }, payload => handleSessionUpdate(payload.new))
+    .subscribe()
+}
+
+async function handleSessionUpdate(sess) {
+  session = sess
+  if (sess.status === 'active' && sess.current_question_index >= 0) {
+    await loadQuestion(sess.quiz_id, sess.current_question_index, sess.question_started_at)
+  }
+  if (sess.status === 'leaderboard') await showLeaderboard()
+  if (sess.status === 'finished')    showFinished()
+}
+
+// ═══════════════════════════════════════════════
+//  OTÁZKA
+// ═══════════════════════════════════════════════
+async function loadQuestion(quizId, idx, startedAt) {
+  answered   = false
+  qStartedAt = new Date(startedAt)
+
+  const { data: qs } = await sb.from('questions')
+    .select('*, choices(*)').eq('quiz_id', quizId).order('order_index')
+  curQuestion = qs[idx]
+  if (!curQuestion) return
+
+  const choices = (curQuestion.choices || []).sort((a,b) => a.order_index - b.order_index)
+  const icons   = ['▲','◆','●','■']
+  const cls     = ['cbA','cbB','cbC','cbD']
+
+  document.getElementById('q-meta').textContent = `Otázka ${idx+1} / ${session.total_questions}`
+  document.getElementById('q-text').textContent = curQuestion.text
+  document.getElementById('choices').innerHTML  = choices.map((c,i) => `
+    <button class="choice-btn ${cls[i]}" id="cb-${c.id}" onclick="submitAnswer('${c.id}', ${c.is_correct})">
+      <div class="cb-icon">${icons[i]}</div>
+      <div class="cb-text">${esc(c.text)}</div>
+    </button>`).join('')
+
+  showView('question')
+  startCountdown(curQuestion.time_limit, startedAt)
+}
+
+function startCountdown(limit, startedAt) {
+  clearInterval(timerInt)
+  const start = new Date(startedAt)
+  const el    = document.getElementById('q-timer')
+
+  function tick() {
+    const elapsed   = (Date.now() - start) / 1000
+    const remaining = Math.max(0, limit - elapsed)
+    el.textContent  = Math.ceil(remaining) + 's'
+    el.style.color  = remaining < 5 ? 'var(--red)' : remaining < 10 ? 'var(--yellow)' : 'var(--accent)'
+    if (remaining <= 0) {
+      clearInterval(timerInt)
+      if (!answered) showResult(false, null, 0)
+    }
+  }
+  tick()
+  timerInt = setInterval(tick, 500)
+}
+
+// ═══════════════════════════════════════════════
+//  ODPOVĚĎ
+// ═══════════════════════════════════════════════
+async function submitAnswer(choiceId, isCorrect) {
+  if (answered) return
+  answered = true
+  clearInterval(timerInt)
+
+  const timeTaken = (Date.now() - qStartedAt) / 1000
+  const pts = isCorrect ? calcPoints(curQuestion.time_limit, timeTaken, curQuestion.points) : 0
+
+  // Vizuálně označit vybranou odpověď
+  document.querySelectorAll('.choice-btn').forEach(b => {
+    b.classList.add('answered')
+    if (b.id === 'cb-' + choiceId) b.classList.add('selected')
+  })
+
+  // Ulož do DB
+  await sb.from('responses').insert({
+    session_id:   session.id,
+    question_id:  curQuestion.id,
+    player_id:    player.id,
+    choice_id:    choiceId,
+    is_correct:   isCorrect,
+    time_taken:   timeTaken,
+    points_earned: pts
+  })
+
+  // Aktualizuj skóre hráče
+  const newScore = (player.score || 0) + pts
+  await sb.from('players').update({ score: newScore }).eq('id', player.id)
+  player.score = newScore
+
+  // Krátká pauza, pak zobraz výsledek
+  setTimeout(() => showResult(isCorrect, timeTaken, pts), 400)
+}
+
+function showResult(isCorrect, timeTaken, pts) {
+  if (isCorrect) {
+    document.getElementById('res-icon').textContent  = '✅'
+    document.getElementById('res-label').textContent = 'Správně!'
+    document.getElementById('res-pts').textContent   = '+' + pts.toLocaleString('cs-CZ')
+    document.getElementById('res-pts').className     = 'result-pts ok'
+    document.getElementById('res-sub').textContent   = `Odpověděl/a za ${timeTaken?.toFixed(1)} s`
+  } else {
+    document.getElementById('res-icon').textContent  = '❌'
+    document.getElementById('res-label').textContent = 'Špatně'
+    document.getElementById('res-pts').textContent   = '+0'
+    document.getElementById('res-pts').className     = 'result-pts no'
+    document.getElementById('res-sub').textContent   = timeTaken ? '' : 'Čas vypršel'
+  }
+  document.getElementById('res-total').textContent = `Celkem: ${player.score.toLocaleString('cs-CZ')} bodů`
+  showView('result')
+}
+
+function calcPoints(limit, taken, base) {
+  const ratio = Math.max(0, 1 - taken / limit)
+  return Math.round(base * (0.5 + 0.5 * ratio))  // 50–100 % základních bodů
+}
+
+// ═══════════════════════════════════════════════
+//  ŽEBŘÍČEK
+// ═══════════════════════════════════════════════
+async function showLeaderboard() {
+  const { data: players } = await sb.from('players')
+    .select('id, nickname, score').eq('session_id', session.id)
+    .order('score', { ascending: false }).limit(10)
+
+  const medals = ['🥇','🥈','🥉']
+  document.getElementById('lb-list').innerHTML = (players||[]).map((p, i) => `
+    <div class="lb-item ${p.id === player.id ? 'me' : ''}">
+      <div class="lb-rank">${medals[i] || (i+1)}</div>
+      <div class="lb-name">${esc(p.nickname)}${p.id === player.id ? ' ← ty' : ''}</div>
+      <div class="lb-score">${p.score.toLocaleString('cs-CZ')}</div>
+    </div>`).join('')
+
+  showView('leaderboard')
+}
+
+// ═══════════════════════════════════════════════
+//  KONEC KVÍZU
+// ═══════════════════════════════════════════════
+async function showFinished() {
+  if (sessionSub) { sessionSub.unsubscribe(); sessionSub = null }
+  clearInterval(timerInt)
+
+  const { data: players } = await sb.from('players')
+    .select('id, score').eq('session_id', session.id)
+    .order('score', { ascending: false })
+
+  const rank = (players||[]).findIndex(p => p.id === player.id) + 1
+  document.getElementById('fin-score').textContent = player.score.toLocaleString('cs-CZ')
+  document.getElementById('fin-rank').textContent  = `${rank}. místo z ${players?.length || 0} hráčů`
+  showView('finished')
+}
+
+// ═══════════════════════════════════════════════
+//  UTILITY
+// ═══════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+</script>
+</body>
+</html>
