@@ -168,6 +168,27 @@
       font-weight: 600; z-index: 1000; animation: toastIn .3s ease-out; white-space: nowrap;
     }
     @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(16px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+    /* ── Results ── */
+    .results-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+    .results-table th {
+      background: var(--card2); padding: .65rem .9rem; text-align: left;
+      cursor: pointer; user-select: none; font-size: .8rem;
+      text-transform: uppercase; letter-spacing: .05em; white-space: nowrap;
+    }
+    .results-table th:hover { color: var(--accent); }
+    .results-table th.sort-asc::after  { content: ' ↑'; color: var(--accent); }
+    .results-table th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+    .results-table td { padding: .6rem .9rem; border-bottom: 1px solid rgba(255,255,255,.04); }
+    .pct-bar  { height: 5px; background: var(--card2); border-radius: 3px; margin-top: 3px; }
+    .pct-fill { height: 100%; background: var(--green); border-radius: 3px; }
+
+    /* ── Image upload ── */
+    .img-upload-btn { display: inline-block; padding: .45rem .9rem; background: var(--card2); border-radius: 8px; cursor: pointer; font-size: .88rem; margin-top: .3rem; }
+    .img-upload-btn:hover { background: #1a2d50; }
+    .q-img-preview { max-width: 100%; max-height: 180px; object-fit: contain; border-radius: 8px; margin-top: .5rem; display: none; }
+    .q-img-preview.visible { display: block; }
+    .question-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -223,6 +244,12 @@
       <div class="form-group">
         <label>Text otázky</label>
         <textarea id="q-text" placeholder="Napiš otázku…" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Obrázek (volitelně)</label>
+        <label class="img-upload-btn" for="q-image">📎 Vybrat soubor</label>
+        <input type="file" id="q-image" accept="image/*" style="display:none" onchange="previewQImage(event)">
+        <img id="q-img-preview" class="q-img-preview" src="" alt="náhled">
       </div>
       <div class="row-2">
         <div class="form-group">
@@ -305,6 +332,32 @@
   </div>
 </div>
 
+<!-- ══════════════ VIEW: RESULTS ══════════════ -->
+<div id="view-results" class="view hidden">
+  <div class="header">
+    <button class="back-btn" onclick="goToDashboard()">← Zpět</button>
+    <div class="logo">Kvíz<span>App</span></div>
+    <button class="btn btn-outline btn-sm" onclick="exportResultsCsv()">⬇ CSV</button>
+  </div>
+  <div class="content">
+    <div class="section-title" id="results-title" style="margin-bottom:.2rem;"></div>
+    <div style="font-size:.82rem; color:var(--muted); margin-bottom:1.25rem;" id="results-meta"></div>
+    <div id="results-empty" class="empty hidden"><div class="empty-icon">📊</div><div>Žádné záznamy</div></div>
+    <div style="overflow-x:auto;">
+      <table class="results-table" id="results-table">
+        <thead><tr>
+          <th data-sort="rank"     onclick="sortResults('rank')"    >#</th>
+          <th data-sort="nickname" onclick="sortResults('nickname')" >Jméno</th>
+          <th data-sort="correct"  onclick="sortResults('correct')"  >Správně</th>
+          <th data-sort="pct"      onclick="sortResults('pct')"      >Úspěšnost</th>
+          <th data-sort="score"    onclick="sortResults('score')"    >Body</th>
+        </tr></thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════
 //  INIT
@@ -322,6 +375,14 @@ const S = {
   playersSub:   null,
   responsesSub: null,
   timerInterval:null,
+}
+const R = {
+  players:   [],
+  sortKey:   'score',
+  sortDir:   -1,
+  sessionId: null,
+  quizTitle: '',
+  totalQ:    0,
 }
 
 // ═══════════════════════════════════════════════
@@ -365,6 +426,7 @@ function renderQuizList() {
       <div class="quiz-card-actions">
         <button class="btn btn-outline btn-sm" onclick="openEditor('${q.id}')">✏️ Upravit</button>
         <button class="btn btn-success btn-sm" onclick="openSessionSetup('${q.id}')">▶ Spustit</button>
+        <button class="btn btn-outline btn-sm" onclick="openResults('${q.id}')">📊 Výsledky</button>
         <button class="btn btn-danger btn-sm" onclick="deleteQuiz('${q.id}')">🗑</button>
       </div>
     </div>`).join('')
@@ -419,6 +481,7 @@ function renderQuestionList() {
   el.innerHTML = S.questions.map((q, i) => `
     <div class="question-item">
       <div class="question-num">${i + 1}</div>
+      ${q.image_url ? `<img class="question-thumb" src="${esc(q.image_url)}" alt="">` : ''}
       <div style="flex:1">
         <div class="question-text">${esc(q.text)}</div>
         <div class="question-meta">⏱ ${q.time_limit}s · ${q.points} bodů · ${q.choices?.length || 0} možností</div>
@@ -443,8 +506,16 @@ async function addQuestion() {
   if (choices.length < 2) { showToast('Zadej alespoň 2 odpovědi'); return }
   if (!choices.some(c => c.is_correct)) { showToast('Označ správnou odpověď (✓)'); return }
 
+  let imageUrl = null
+  const imgFile = document.getElementById('q-image').files[0]
+  if (imgFile) {
+    showToast('Nahrávám obrázek…')
+    imageUrl = await uploadImage(imgFile)
+    if (!imageUrl) return
+  }
+
   const { data: q, error } = await sb.from('questions')
-    .insert({ quiz_id: S.currentQuiz.id, text, time_limit: time, points, order_index: S.questions.length })
+    .insert({ quiz_id: S.currentQuiz.id, text, time_limit: time, points, order_index: S.questions.length, image_url: imageUrl })
     .select().single()
   if (error) { showToast('Chyba uložení'); return }
 
@@ -452,6 +523,9 @@ async function addQuestion() {
 
   // Reset formuláře
   document.getElementById('q-text').value = ''
+  document.getElementById('q-image').value = ''
+  const prev = document.getElementById('q-img-preview')
+  prev.classList.remove('visible'); prev.src = ''
   ;[0,1,2,3].forEach(i => {
     document.getElementById('c' + i).value  = ''
     document.getElementById('ok' + i).checked = false
@@ -632,10 +706,14 @@ async function teacherShowLeaderboard() {
 }
 
 async function finishQuiz() {
-  await sb.from('sessions').update({ status: 'finished' }).eq('id', S.session.id)
+  const sessionId = S.session.id
+  const quizTitle = S.currentQuiz?.title || ''
+  const totalQ    = S.questions.length
+  const createdAt = S.session.created_at || new Date().toISOString()
+  await sb.from('sessions').update({ status: 'finished' }).eq('id', sessionId)
   cleanupSession()
   showToast('Kvíz ukončen! 🎉')
-  setTimeout(() => goToDashboard(), 2000)
+  setTimeout(() => loadResults(sessionId, quizTitle, totalQ, createdAt), 800)
 }
 
 async function confirmEndSession() {
@@ -674,6 +752,129 @@ function showToast(msg) {
     document.getElementById('cw' + i).classList.toggle('correct', e.target.checked)
   })
 })
+
+// ═══════════════════════════════════════════════
+//  IMAGE UPLOAD
+// ═══════════════════════════════════════════════
+function previewQImage(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const p = document.getElementById('q-img-preview')
+  p.src = URL.createObjectURL(file)
+  p.classList.add('visible')
+}
+
+async function uploadImage(file) {
+  if (file.size > 5 * 1024 * 1024) { showToast('Obrázek je příliš velký (max 5 MB)'); return null }
+  const ext  = file.name.split('.').pop().toLowerCase()
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+  const { error } = await sb.storage.from('question-images').upload(path, file)
+  if (error) { showToast('Chyba nahrání: ' + error.message); return null }
+  return sb.storage.from('question-images').getPublicUrl(path).data.publicUrl
+}
+
+// ═══════════════════════════════════════════════
+//  RESULTS
+// ═══════════════════════════════════════════════
+async function openResults(quizId) {
+  const quiz = S.quizzes.find(q => q.id === quizId)
+  const { data: sessions } = await sb.from('sessions')
+    .select('id, created_at, total_questions')
+    .eq('quiz_id', quizId).eq('status', 'finished')
+    .order('created_at', { ascending: false }).limit(1)
+  if (!sessions?.length) { showToast('Žádné dokončené relace'); return }
+  const s = sessions[0]
+  await loadResults(s.id, quiz?.title || 'Kvíz', s.total_questions, s.created_at)
+}
+
+async function loadResults(sessionId, quizTitle, totalQ, createdAt) {
+  R.sessionId = sessionId
+  R.quizTitle = quizTitle
+  R.totalQ    = totalQ || 0
+
+  const [{ data: players }, { data: responses }] = await Promise.all([
+    sb.from('players').select('id, nickname, score').eq('session_id', sessionId),
+    sb.from('responses').select('player_id, is_correct').eq('session_id', sessionId)
+  ])
+
+  const map = {}
+  for (const r of responses || []) {
+    if (!map[r.player_id]) map[r.player_id] = { total: 0, correct: 0 }
+    map[r.player_id].total++
+    if (r.is_correct) map[r.player_id].correct++
+  }
+
+  R.players = (players || []).map(p => {
+    const s = map[p.id] || { total: 0, correct: 0 }
+    const denom = R.totalQ || s.total
+    return {
+      id: p.id, nickname: p.nickname, score: p.score,
+      correct: s.correct, total: denom,
+      pct: denom > 0 ? Math.round(s.correct / denom * 100) : 0
+    }
+  })
+
+  document.getElementById('results-title').textContent = quizTitle + ' – Výsledky'
+  document.getElementById('results-meta').textContent  =
+    `${fmtDate(createdAt)} · ${R.players.length} hráčů`
+
+  sortResults('score')
+  showView('results')
+}
+
+function sortResults(key) {
+  if (R.sortKey === key) R.sortDir *= -1
+  else { R.sortKey = key; R.sortDir = key === 'nickname' ? 1 : -1 }
+
+  R.players.sort((a, b) => {
+    const av = key === 'nickname' ? a[key].toLowerCase() : a[key]
+    const bv = key === 'nickname' ? b[key].toLowerCase() : b[key]
+    return av < bv ? -R.sortDir : av > bv ? R.sortDir : 0
+  })
+
+  document.querySelectorAll('#results-table th').forEach(th => {
+    th.className = th.dataset.sort === key
+      ? (R.sortDir === 1 ? 'sort-asc' : 'sort-desc') : ''
+  })
+
+  renderResultsTable()
+}
+
+function renderResultsTable() {
+  const body  = document.getElementById('results-body')
+  const empty = document.getElementById('results-empty')
+  if (!R.players.length) {
+    body.innerHTML = ''; empty.classList.remove('hidden'); return
+  }
+  empty.classList.add('hidden')
+
+  const ranked = [...R.players].sort((a, b) => b.score - a.score)
+  const rankOf  = {}; ranked.forEach((p, i) => rankOf[p.id] = i + 1)
+
+  body.innerHTML = R.players.map(p => `
+    <tr>
+      <td style="color:var(--muted)">${rankOf[p.id]}</td>
+      <td style="font-weight:700">${esc(p.nickname)}</td>
+      <td>${p.correct} / ${p.total}</td>
+      <td>
+        <span>${p.pct} %</span>
+        <div class="pct-bar"><div class="pct-fill" style="width:${p.pct}%"></div></div>
+      </td>
+      <td style="color:var(--accent);font-weight:900">${p.score.toLocaleString('cs-CZ')}</td>
+    </tr>`).join('')
+}
+
+function exportResultsCsv() {
+  const ranked = [...R.players].sort((a, b) => b.score - a.score)
+  const rankOf  = {}; ranked.forEach((p, i) => rankOf[p.id] = i + 1)
+  const rows = [['Pořadí','Jméno','Správně','Celkem','Úspěšnost (%)','Body'],
+    ...R.players.map(p => [rankOf[p.id], p.nickname, p.correct, p.total, p.pct, p.score])]
+  const csv  = rows.map(r => r.join(';')).join('\r\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+  Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob), download: R.quizTitle + '_výsledky.csv'
+  }).click()
+}
 
 // Start
 loadQuizzes()

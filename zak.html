@@ -148,6 +148,10 @@
     .fin-score { font-size: 3.2rem; font-weight: 900; color: var(--accent); }
     .fin-sub   { color: var(--muted); margin-top: .4rem; }
     .fin-rank  { margin-top: 1rem; font-size: .95rem; color: var(--muted); }
+
+    /* ── Question image ── */
+    .q-image { width: 100%; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: .75rem; display: none; }
+    .q-image.visible { display: block; }
   </style>
 </head>
 <body>
@@ -186,6 +190,7 @@
     <div class="q-text" id="q-text"></div>
     <div class="q-timer" id="q-timer"></div>
   </div>
+  <img id="q-image" class="q-image" src="" alt="">
   <div class="choices" id="choices"></div>
 </div>
 
@@ -327,6 +332,15 @@ async function loadQuestion(quizId, idx, startedAt) {
       <div class="cb-icon">${icons[i]}</div>
       <div class="cb-text">${esc(c.text)}</div>
     </button>`).join('')
+
+  const imgEl = document.getElementById('q-image')
+  if (curQuestion.image_url) {
+    imgEl.src = curQuestion.image_url
+    imgEl.classList.add('visible')
+  } else {
+    imgEl.src = ''
+    imgEl.classList.remove('visible')
+  }
 
   showView('question')
   startCountdown(curQuestion.time_limit, startedAt)
