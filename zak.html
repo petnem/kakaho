@@ -224,6 +224,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 // Stav
 let player      = null   // { id, nickname, score, session_id }
 let session     = null   // celý řádek z DB
+let questions   = null   // cache otázek pro aktuální relaci
 let curQuestion = null
 let qStartedAt  = null
 let answered    = false
@@ -269,8 +270,9 @@ async function joinSession() {
     .insert({ session_id: sess.id, nickname: nick, score: 0 }).select().single()
   if (pErr) { err.textContent = 'Chyba připojení – zkus to znovu.'; return }
 
-  player  = p
-  session = sess
+  player    = p
+  session   = sess
+  questions = null
 
   document.getElementById('lobby-name').textContent = nick
   document.getElementById('lobby-quiz').textContent = sess.quiz_title || 'Kvíz'
@@ -306,9 +308,12 @@ async function loadQuestion(quizId, idx, startedAt) {
   answered   = false
   qStartedAt = new Date(startedAt)
 
-  const { data: qs } = await sb.from('questions')
-    .select('*, choices(*)').eq('quiz_id', quizId).order('order_index')
-  curQuestion = qs[idx]
+  if (!questions) {
+    const { data: qs } = await sb.from('questions')
+      .select('*, choices(*)').eq('quiz_id', quizId).order('order_index')
+    questions = qs
+  }
+  curQuestion = questions[idx]
   if (!curQuestion) return
 
   const choices = (curQuestion.choices || []).sort((a,b) => a.order_index - b.order_index)
@@ -318,7 +323,7 @@ async function loadQuestion(quizId, idx, startedAt) {
   document.getElementById('q-meta').textContent = `Otázka ${idx+1} / ${session.total_questions}`
   document.getElementById('q-text').textContent = curQuestion.text
   document.getElementById('choices').innerHTML  = choices.map((c,i) => `
-    <button class="choice-btn ${cls[i]}" id="cb-${c.id}" onclick="submitAnswer('${c.id}', ${c.is_correct})">
+    <button class="choice-btn ${cls[i]}" id="cb-${c.id}" onclick="submitAnswer('${c.id}')">
       <div class="cb-icon">${icons[i]}</div>
       <div class="cb-text">${esc(c.text)}</div>
     </button>`).join('')
@@ -349,11 +354,13 @@ function startCountdown(limit, startedAt) {
 // ═══════════════════════════════════════════════
 //  ODPOVĚĎ
 // ═══════════════════════════════════════════════
-async function submitAnswer(choiceId, isCorrect) {
+async function submitAnswer(choiceId) {
   if (answered) return
   answered = true
   clearInterval(timerInt)
 
+  const choice    = curQuestion.choices.find(c => c.id === choiceId)
+  const isCorrect = choice?.is_correct ?? false
   const timeTaken = (Date.now() - qStartedAt) / 1000
   const pts = isCorrect ? calcPoints(curQuestion.time_limit, timeTaken, curQuestion.points) : 0
 

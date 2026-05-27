@@ -492,15 +492,18 @@ async function openSessionSetup(quizId) {
   S.currentQIdx = -1
 
   const pin = await generateUniquePin()
+  if (!pin) { showToast('Nepodařilo se vygenerovat PIN. Zkus to znovu.'); return }
 
-  const { data: session } = await sb.from('sessions')
+  const { data: session, error: sessErr } = await sb.from('sessions')
     .insert({ quiz_id: quizId, quiz_title: quiz.title, pin, status: 'waiting', current_question_index: -1, total_questions: questions.length })
     .select().single()
+  if (sessErr || !session) { showToast('Chyba vytvoření relace.'); return }
   S.session = session
 
   // PIN + URL
   document.getElementById('sess-pin').textContent  = pin
-  const studentUrl = window.location.origin + (window.location.pathname.replace('ucitel.html','')) + 'zak.html?pin=' + pin
+  const basePath   = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1)
+  const studentUrl = window.location.origin + basePath + 'zak.html?pin=' + pin
   document.getElementById('sess-url').textContent  = studentUrl
 
   // QR kód
@@ -521,13 +524,12 @@ async function openSessionSetup(quizId) {
 }
 
 async function generateUniquePin() {
-  let pin, tries = 0
-  do {
-    pin = Math.floor(100000 + Math.random() * 900000).toString()
+  for (let tries = 0; tries < 10; tries++) {
+    const pin = Math.floor(100000 + Math.random() * 900000).toString()
     const { data } = await sb.from('sessions').select('id').eq('pin', pin).eq('status', 'waiting')
-    if (!data?.length) break
-  } while (++tries < 10)
-  return pin
+    if (!data?.length) return pin
+  }
+  return null
 }
 
 function subscribeToPlayers(sessionId) {
