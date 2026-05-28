@@ -445,15 +445,17 @@ const { createClient } = supabase
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const S = {
-  quizzes:      [],
-  currentQuiz:  null,
-  questions:    [],
-  session:      null,
-  players:      [],
-  currentQIdx:  -1,
-  playersSub:   null,
-  responsesSub: null,
-  timerInterval:null,
+  quizzes:        [],
+  currentQuiz:    null,
+  questions:      [],
+  session:        null,
+  players:        [],
+  currentQIdx:    -1,
+  playersSub:     null,
+  responsesSub:   null,
+  timerInterval:  null,
+  currentChoices: [],
+  correctRevealed:false,
 }
 const R = {
   players:   [],
@@ -736,15 +738,10 @@ async function nextQuestion() {
   if (q.image_url) { lqImg.src = q.image_url; lqImg.classList.add('visible') }
   else             { lqImg.src = '';           lqImg.classList.remove('visible') }
 
-  // Odpovědi (přehled pro učitele)
-  const lcls  = ['lcA','lcB','lcC','lcD']
-  const icons = ['🔴','🔵','🟠','🟢']
-  const choices = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
-  document.getElementById('live-choices').innerHTML = choices.map((c, i) => `
-    <div class="live-choice ${lcls[i]} ${c.is_correct ? 'correct-choice' : ''}">
-      <span>${icons[i]}</span>
-      <span>${esc(c.text)}${c.is_correct ? ' ✓' : ''}</span>
-    </div>`).join('')
+  // Odpovědi – uložit do stavu, zobrazit BEZ odhalení správné
+  S.currentChoices  = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+  S.correctRevealed = false
+  renderLiveChoices(false)
 
   // Schovat "Další" pokud je poslední otázka
   document.getElementById('btn-skip-next').classList.toggle('hidden', S.currentQIdx >= S.questions.length - 1)
@@ -764,7 +761,7 @@ function startTimer(seconds) {
     const pct = Math.max(0, (rem / seconds) * 100)
     fill.style.width = pct + '%'
     fill.style.background = pct < 30 ? 'var(--red)' : pct < 60 ? 'var(--yellow)' : 'var(--green)'
-    if (rem <= 0) clearInterval(S.timerInterval)
+    if (rem <= 0) { clearInterval(S.timerInterval); revealCorrectAnswers() }
   }, 1000)
 }
 
@@ -775,14 +772,33 @@ function subscribeToResponses(sessionId, questionId) {
       async () => {
         const { count } = await sb.from('responses').select('*', { count: 'exact' })
           .eq('session_id', sessionId).eq('question_id', questionId)
-        const el = document.getElementById('ans-count')
-        if (el) el.textContent = count || 0
+        const cur = count || 0
+        const el  = document.getElementById('ans-count')
+        if (el) el.textContent = cur
+        if (cur >= S.players.length) revealCorrectAnswers()
       })
     .subscribe()
 }
 
+function renderLiveChoices(reveal) {
+  const lcls  = ['lcA','lcB','lcC','lcD']
+  const icons = ['🔴','🔵','🟠','🟢']
+  document.getElementById('live-choices').innerHTML = S.currentChoices.map((c, i) => `
+    <div class="live-choice ${lcls[i]} ${reveal && c.is_correct ? 'correct-choice' : ''}">
+      <span>${icons[i]}</span>
+      <span>${esc(c.text)}${reveal && c.is_correct ? ' ✓' : ''}</span>
+    </div>`).join('')
+}
+
+function revealCorrectAnswers() {
+  if (S.correctRevealed) return
+  S.correctRevealed = true
+  renderLiveChoices(true)
+}
+
 async function teacherShowLeaderboard() {
   clearInterval(S.timerInterval)
+  revealCorrectAnswers()
   await sb.from('sessions').update({ status: 'leaderboard' }).eq('id', S.session.id)
 
   const { data: players } = await sb.from('players')
@@ -861,6 +877,7 @@ function showToast(msg) {
 // ═══════════════════════════════════════════════
 async function skipToNext() {
   clearInterval(S.timerInterval)
+  revealCorrectAnswers()
   await nextQuestion()
 }
 
