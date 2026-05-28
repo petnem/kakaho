@@ -152,6 +152,10 @@
     /* ── Question image ── */
     .q-image { width: 100%; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: .75rem; display: none; }
     .q-image.visible { display: block; }
+
+    /* ── Multi-select ── */
+    .q-multi-hint { font-size: .8rem; color: var(--muted); text-align: center; margin-bottom: .5rem; }
+    .confirm-wrap { margin-top: .75rem; }
   </style>
 </head>
 <body>
@@ -191,7 +195,11 @@
     <div class="q-timer" id="q-timer"></div>
   </div>
   <img id="q-image" class="q-image" src="" alt="">
+  <div id="q-multi-hint" class="q-multi-hint hidden">Vyber všechny správné odpovědi, pak potvrď.</div>
   <div class="choices" id="choices"></div>
+  <div id="confirm-wrap" class="confirm-wrap hidden">
+    <button class="btn btn-success" onclick="confirmMultiAnswer()">Potvrdit výběr →</button>
+  </div>
 </div>
 
 <!-- ═══ RESULT ═══ -->
@@ -227,19 +235,29 @@ const { createClient } = supabase
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 // Stav
-let player      = null   // { id, nickname, score, session_id }
-let session     = null   // celý řádek z DB
-let questions   = null   // cache otázek pro aktuální relaci
-let curQuestion = null
-let qStartedAt  = null
-let answered    = false
-let timerInt    = null
-let sessionSub  = null
+let player          = null
+let session         = null
+let questions       = null
+let curQuestion     = null
+let qStartedAt      = null
+let answered        = false
+let timerInt        = null
+let sessionSub      = null
+let selectedChoices = new Set()
 
 // ═══════════════════════════════════════════════
-//  INIT – předvyplnit PIN z URL
+//  INIT – obnov session nebo předvyplň PIN
 // ═══════════════════════════════════════════════
-;(function init() {
+;(async function init() {
+  const saved = sessionStorage.getItem('kv_player')
+  if (saved) {
+    try {
+      await rejoinSession(JSON.parse(saved))
+      return
+    } catch(e) {
+      sessionStorage.removeItem('kv_player')
+    }
+  }
   const pin = new URLSearchParams(window.location.search).get('pin')
   if (pin) {
     document.getElementById('pin-input').value = pin
@@ -279,6 +297,9 @@ async function joinSession() {
   session   = sess
   questions = null
 
+  // Ulož stav pro případ refreshe
+  sessionStorage.setItem('kv_player', JSON.stringify({ playerId: p.id, sessionId: sess.id }))
+
   document.getElementById('lobby-name').textContent = nick
   document.getElementById('lobby-quiz').textContent = sess.quiz_title || 'Kvíz'
   showView('lobby')
@@ -289,12 +310,19 @@ async function joinSession() {
 //  REALTIME – sleduj změny relace
 // ═══════════════════════════════════════════════
 function subscribeToSession(sessionId) {
+  if (sessionSub) sessionSub.unsubscribe()
   sessionSub = sb.channel('sess-watch-' + sessionId)
     .on('postgres_changes', {
       event: 'UPDATE', schema: 'public', table: 'sessions',
       filter: `id=eq.${sessionId}`
     }, payload => handleSessionUpdate(payload.new))
-    .subscribe()
+    .subscribe(async status => {
+      // Při navázání subscription ověř aktuální stav – mohli jsme propásnout UPDATE
+      if (status === 'SUBSCRIBED') {
+        const { data: s } = await sb.from('sessions').select('*').eq('id', sessionId).single()
+        if (s && s.status !== 'waiting') handleSessionUpdate(s)
+      }
+    })
 }
 
 async function handleSessionUpdate(sess) {
@@ -310,8 +338,9 @@ async function handleSessionUpdate(sess) {
 //  OTÁZKA
 // ═══════════════════════════════════════════════
 async function loadQuestion(quizId, idx, startedAt) {
-  answered   = false
-  qStartedAt = new Date(startedAt)
+  answered        = false
+  qStartedAt      = new Date(startedAt)
+  selectedChoices = new Set()
 
   if (!questions) {
     const { data: qs } = await sb.from('questions')
@@ -321,17 +350,23 @@ async function loadQuestion(quizId, idx, startedAt) {
   curQuestion = questions[idx]
   if (!curQuestion) return
 
-  const choices = (curQuestion.choices || []).sort((a,b) => a.order_index - b.order_index)
-  const icons   = ['▲','◆','●','■']
-  const cls     = ['cbA','cbB','cbC','cbD']
+  const choices      = (curQuestion.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+  const correctCount = choices.filter(c => c.is_correct).length
+  const isMulti      = correctCount > 1
+  const icons        = ['▲','◆','●','■']
+  const cls          = ['cbA','cbB','cbC','cbD']
 
   document.getElementById('q-meta').textContent = `Otázka ${idx+1} / ${session.total_questions}`
   document.getElementById('q-text').textContent = curQuestion.text
   document.getElementById('choices').innerHTML  = choices.map((c,i) => `
-    <button class="choice-btn ${cls[i]}" id="cb-${c.id}" onclick="submitAnswer('${c.id}')">
+    <button class="choice-btn ${cls[i]}" id="cb-${c.id}" onclick="handleChoiceClick('${c.id}')">
       <div class="cb-icon">${icons[i]}</div>
       <div class="cb-text">${esc(c.text)}</div>
     </button>`).join('')
+
+  // Multi-select hint + confirm button
+  document.getElementById('q-multi-hint').classList.toggle('hidden', !isMulti)
+  document.getElementById('confirm-wrap').classList.add('hidden')
 
   const imgEl = document.getElementById('q-image')
   if (curQuestion.image_url) {
@@ -368,39 +403,70 @@ function startCountdown(limit, startedAt) {
 // ═══════════════════════════════════════════════
 //  ODPOVĚĎ
 // ═══════════════════════════════════════════════
-async function submitAnswer(choiceId) {
+function handleChoiceClick(choiceId) {
+  if (answered) return
+  const correctCount = (curQuestion.choices || []).filter(c => c.is_correct).length
+  if (correctCount > 1) {
+    // Multi-select: přepínání výběru
+    const btn = document.getElementById('cb-' + choiceId)
+    if (selectedChoices.has(choiceId)) {
+      selectedChoices.delete(choiceId)
+      btn.classList.remove('selected')
+    } else {
+      selectedChoices.add(choiceId)
+      btn.classList.add('selected')
+    }
+    document.getElementById('confirm-wrap').classList.toggle('hidden', selectedChoices.size === 0)
+  } else {
+    submitAnswer([choiceId])
+  }
+}
+
+function confirmMultiAnswer() {
+  if (answered || selectedChoices.size === 0) return
+  submitAnswer([...selectedChoices])
+}
+
+async function submitAnswer(choiceIds) {
   if (answered) return
   answered = true
   clearInterval(timerInt)
+  document.getElementById('confirm-wrap').classList.add('hidden')
 
-  const choice    = curQuestion.choices.find(c => c.id === choiceId)
-  const isCorrect = choice?.is_correct ?? false
+  const choices     = curQuestion.choices || []
+  const correctIds  = new Set(choices.filter(c => c.is_correct).map(c => c.id))
+  const selectedSet = new Set(choiceIds)
+
+  // Správně = vybrány přesně všechny správné a žádná špatná
+  const isCorrect = correctIds.size === selectedSet.size &&
+                    [...correctIds].every(id => selectedSet.has(id))
+
   const timeTaken = (Date.now() - qStartedAt) / 1000
   const pts = isCorrect ? calcPoints(curQuestion.time_limit, timeTaken, curQuestion.points) : 0
 
-  // Vizuálně označit vybranou odpověď
-  document.querySelectorAll('.choice-btn').forEach(b => {
-    b.classList.add('answered')
-    if (b.id === 'cb-' + choiceId) b.classList.add('selected')
+  // Vizuálně označit vybrané odpovědi
+  document.querySelectorAll('.choice-btn').forEach(b => b.classList.add('answered'))
+  choiceIds.forEach(id => {
+    const btn = document.getElementById('cb-' + id)
+    if (btn) btn.classList.add('selected')
   })
 
-  // Ulož do DB
+  // Ulož do DB (jeden řádek na otázku)
   await sb.from('responses').insert({
-    session_id:   session.id,
-    question_id:  curQuestion.id,
-    player_id:    player.id,
-    choice_id:    choiceId,
-    is_correct:   isCorrect,
-    time_taken:   timeTaken,
+    session_id:    session.id,
+    question_id:   curQuestion.id,
+    player_id:     player.id,
+    choice_id:     choiceIds[0] || null,
+    is_correct:    isCorrect,
+    time_taken:    timeTaken,
     points_earned: pts
   })
 
-  // Aktualizuj skóre hráče
+  // Aktualizuj skóre
   const newScore = (player.score || 0) + pts
   await sb.from('players').update({ score: newScore }).eq('id', player.id)
   player.score = newScore
 
-  // Krátká pauza, pak zobraz výsledek
   setTimeout(() => showResult(isCorrect, timeTaken, pts), 400)
 }
 
@@ -447,9 +513,45 @@ async function showLeaderboard() {
 }
 
 // ═══════════════════════════════════════════════
+//  OBNOVA PO REFRESHI
+// ═══════════════════════════════════════════════
+async function rejoinSession(state) {
+  const [{ data: p }, { data: sess }] = await Promise.all([
+    sb.from('players').select('*').eq('id', state.playerId).single(),
+    sb.from('sessions').select('*').eq('id', state.sessionId).single()
+  ])
+
+  if (!p || !sess) { sessionStorage.removeItem('kv_player'); return }
+
+  player    = p
+  session   = sess
+  questions = null
+
+  document.getElementById('lobby-name').textContent = p.nickname
+  document.getElementById('lobby-quiz').textContent = sess.quiz_title || 'Kvíz'
+
+  if (sess.status === 'finished') {
+    sessionStorage.removeItem('kv_player')
+    await showFinished()
+    return
+  }
+
+  subscribeToSession(sess.id)
+
+  if (sess.status === 'waiting') {
+    showView('lobby')
+  } else if (sess.status === 'active' && sess.current_question_index >= 0) {
+    await loadQuestion(sess.quiz_id, sess.current_question_index, sess.question_started_at)
+  } else if (sess.status === 'leaderboard') {
+    await showLeaderboard()
+  }
+}
+
+// ═══════════════════════════════════════════════
 //  KONEC KVÍZU
 // ═══════════════════════════════════════════════
 async function showFinished() {
+  sessionStorage.removeItem('kv_player')
   if (sessionSub) { sessionSub.unsubscribe(); sessionSub = null }
   clearInterval(timerInt)
 
