@@ -189,6 +189,35 @@
     .q-img-preview { max-width: 100%; max-height: 180px; object-fit: contain; border-radius: 8px; margin-top: .5rem; display: none; }
     .q-img-preview.visible { display: block; }
     .question-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+
+    /* ── Modal edit ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 1.5rem 1rem; overflow-y: auto;
+    }
+    .modal-card {
+      background: var(--card); border-radius: 14px; padding: 1.5rem;
+      width: 100%; max-width: 560px;
+    }
+    .modal-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 1rem; }
+    .img-row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-top: .4rem; }
+    .img-row img { max-height: 80px; border-radius: 6px; object-fit: contain; }
+
+    /* ── Live session choices ── */
+    .live-choices { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .75rem; }
+    .live-choice {
+      border-radius: 8px; padding: .55rem .8rem;
+      display: flex; align-items: center; gap: .5rem;
+      font-weight: 700; font-size: .92rem;
+    }
+    .live-choice.correct-choice { box-shadow: 0 0 0 2px var(--green); }
+    .lcA { background: rgba(231,76,60,.25);  color: #e74c3c; }
+    .lcB { background: rgba(52,152,219,.25); color: #3498db; }
+    .lcC { background: rgba(230,126,34,.25); color: #e67e22; }
+    .lcD { background: rgba(46,204,113,.25); color: var(--green); }
+    .live-q-image { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin: .5rem 0; display: none; }
+    .live-q-image.visible { display: block; }
   </style>
 </head>
 <body>
@@ -306,15 +335,22 @@
       <div class="live-question">
         <div class="live-q-num" id="live-q-num"></div>
         <div class="live-q-text" id="live-q-text"></div>
-        <div class="timer-bar"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
+        <img id="live-q-image" class="live-q-image" src="" alt="">
+        <div id="live-choices" class="live-choices"></div>
+        <div class="timer-bar" style="margin-top:.75rem;"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
         <div class="answer-row">
           <span style="color:var(--muted); font-size:.9rem;">Odpovědělo:</span>
           <span class="answer-count"><span id="ans-count">0</span> / <span id="ans-total">0</span></span>
         </div>
       </div>
-      <button class="btn btn-primary btn-block" style="font-size:1.05rem; padding:.9rem;" onclick="teacherShowLeaderboard()">
-        📊 Zobrazit žebříček
-      </button>
+      <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+        <button class="btn btn-primary" style="flex:1; font-size:1rem; padding:.85rem;" onclick="teacherShowLeaderboard()">
+          📊 Žebříček
+        </button>
+        <button id="btn-skip-next" class="btn btn-success" style="flex:1; font-size:1rem; padding:.85rem;" onclick="skipToNext()">
+          Další otázka →
+        </button>
+      </div>
     </div>
 
     <!-- LEADERBOARD -->
@@ -354,6 +390,49 @@
         </tr></thead>
         <tbody id="results-body"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: EDIT QUESTION ══════════════ -->
+<div id="modal-edit-q" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-title">Upravit otázku</div>
+    <div class="form-group">
+      <label>Text otázky</label>
+      <textarea id="eq-text" rows="2" placeholder="Text otázky…"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Obrázek</label>
+      <div id="eq-img-row" class="img-row">
+        <img id="eq-img-preview" src="" alt="" style="display:none; max-height:80px; border-radius:6px;">
+        <button id="eq-img-remove" class="btn btn-danger btn-sm" style="display:none;" onclick="removeEditImage()">🗑 Odebrat</button>
+      </div>
+      <div style="margin-top:.4rem; display:flex; gap:.5rem; align-items:center;">
+        <label class="img-upload-btn" for="eq-image">📎 Změnit obrázek</label>
+        <input type="file" id="eq-image" accept="image/*" style="display:none" onchange="previewEqImage(event)">
+      </div>
+    </div>
+    <div class="row-2">
+      <div class="form-group">
+        <label>Čas (sekund)</label>
+        <input type="number" id="eq-time" min="5" max="120">
+      </div>
+      <div class="form-group">
+        <label>Body</label>
+        <input type="number" id="eq-points" min="100" max="2000" step="100">
+      </div>
+    </div>
+    <label style="margin-bottom:.5rem;">Odpovědi (✓ = správná)</label>
+    <div class="choices-grid">
+      <div class="choice-item" id="eq-cw0"><div class="choice-letter cA">A</div><input type="text" id="eq-c0" placeholder="Odpověď A"><input type="checkbox" id="eq-ok0" title="Správná"></div>
+      <div class="choice-item" id="eq-cw1"><div class="choice-letter cB">B</div><input type="text" id="eq-c1" placeholder="Odpověď B"><input type="checkbox" id="eq-ok1" title="Správná"></div>
+      <div class="choice-item" id="eq-cw2"><div class="choice-letter cC">C</div><input type="text" id="eq-c2" placeholder="Odpověď C"><input type="checkbox" id="eq-ok2" title="Správná"></div>
+      <div class="choice-item" id="eq-cw3"><div class="choice-letter cD">D</div><input type="text" id="eq-c3" placeholder="Odpověď D"><input type="checkbox" id="eq-ok3" title="Správná"></div>
+    </div>
+    <div style="display:flex; gap:.5rem; margin-top:1rem;">
+      <button class="btn btn-success" onclick="saveEditQuestion()">Uložit</button>
+      <button class="btn btn-outline" onclick="closeEditModal()">Zrušit</button>
     </div>
   </div>
 </div>
@@ -486,7 +565,10 @@ function renderQuestionList() {
         <div class="question-text">${esc(q.text)}</div>
         <div class="question-meta">⏱ ${q.time_limit}s · ${q.points} bodů · ${q.choices?.length || 0} možností</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${q.id}')">🗑</button>
+      <div style="display:flex; gap:.4rem; flex-shrink:0;">
+        <button class="btn btn-outline btn-sm" onclick="editQuestion('${q.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${q.id}')">🗑</button>
+      </div>
     </div>`).join('')
 }
 
@@ -649,6 +731,24 @@ async function nextQuestion() {
   document.getElementById('ans-count').textContent   = '0'
   document.getElementById('sess-progress').textContent = `${S.currentQIdx + 1}/${S.questions.length}`
 
+  // Obrázek
+  const lqImg = document.getElementById('live-q-image')
+  if (q.image_url) { lqImg.src = q.image_url; lqImg.classList.add('visible') }
+  else             { lqImg.src = '';           lqImg.classList.remove('visible') }
+
+  // Odpovědi (přehled pro učitele)
+  const lcls  = ['lcA','lcB','lcC','lcD']
+  const icons = ['🔴','🔵','🟠','🟢']
+  const choices = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+  document.getElementById('live-choices').innerHTML = choices.map((c, i) => `
+    <div class="live-choice ${lcls[i]} ${c.is_correct ? 'correct-choice' : ''}">
+      <span>${icons[i]}</span>
+      <span>${esc(c.text)}${c.is_correct ? ' ✓' : ''}</span>
+    </div>`).join('')
+
+  // Schovat "Další" pokud je poslední otázka
+  document.getElementById('btn-skip-next').classList.toggle('hidden', S.currentQIdx >= S.questions.length - 1)
+
   startTimer(q.time_limit)
   subscribeToResponses(S.session.id, q.id)
 }
@@ -746,12 +846,125 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 2500)
 }
 
-// Highlight správné odpovědi v editoru
+// Highlight správné odpovědi v editoru (přidat + edit)
 ;[0,1,2,3].forEach(i => {
-  document.getElementById('ok' + i).addEventListener('change', e => {
-    document.getElementById('cw' + i).classList.toggle('correct', e.target.checked)
+  document.getElementById('ok'   + i).addEventListener('change', e => {
+    document.getElementById('cw'  + i).classList.toggle('correct', e.target.checked)
+  })
+  document.getElementById('eq-ok' + i).addEventListener('change', e => {
+    document.getElementById('eq-cw' + i).classList.toggle('correct', e.target.checked)
   })
 })
+
+// ═══════════════════════════════════════════════
+//  SKIP TO NEXT (bez žebříčku)
+// ═══════════════════════════════════════════════
+async function skipToNext() {
+  clearInterval(S.timerInterval)
+  await nextQuestion()
+}
+
+// ═══════════════════════════════════════════════
+//  EDIT QUESTION MODAL
+// ═══════════════════════════════════════════════
+let EQ = { id: null, origImageUrl: null, newImageUrl: undefined }
+
+function editQuestion(id) {
+  const q = S.questions.find(x => x.id === id)
+  if (!q) return
+  EQ.id          = id
+  EQ.origImageUrl = q.image_url || null
+  EQ.newImageUrl  = undefined   // undefined = beze změny
+
+  document.getElementById('eq-text').value   = q.text
+  document.getElementById('eq-time').value   = q.time_limit
+  document.getElementById('eq-points').value = q.points
+
+  // Obrázek
+  const prev   = document.getElementById('eq-img-preview')
+  const remBtn = document.getElementById('eq-img-remove')
+  if (q.image_url) {
+    prev.src = q.image_url; prev.style.display = 'block'
+    remBtn.style.display = 'inline-block'
+  } else {
+    prev.src = ''; prev.style.display = 'none'
+    remBtn.style.display = 'none'
+  }
+  document.getElementById('eq-image').value = ''
+
+  // Odpovědi
+  const sorted = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+  ;[0,1,2,3].forEach(i => {
+    const c = sorted[i] || { text: '', is_correct: false }
+    document.getElementById('eq-c'  + i).value   = c.text
+    document.getElementById('eq-ok' + i).checked = c.is_correct
+    document.getElementById('eq-cw' + i).classList.toggle('correct', c.is_correct)
+  })
+
+  document.getElementById('modal-edit-q').classList.remove('hidden')
+}
+
+function closeEditModal() {
+  document.getElementById('modal-edit-q').classList.add('hidden')
+}
+
+function previewEqImage(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const prev   = document.getElementById('eq-img-preview')
+  const remBtn = document.getElementById('eq-img-remove')
+  prev.src = URL.createObjectURL(file)
+  prev.style.display = 'block'
+  remBtn.style.display = 'inline-block'
+  EQ.newImageUrl = null  // bude nahráno při uložení
+}
+
+function removeEditImage() {
+  EQ.newImageUrl = ''   // prázdný řetězec = smazat
+  const prev   = document.getElementById('eq-img-preview')
+  const remBtn = document.getElementById('eq-img-remove')
+  prev.src = ''; prev.style.display = 'none'
+  remBtn.style.display = 'none'
+  document.getElementById('eq-image').value = ''
+}
+
+async function saveEditQuestion() {
+  const text   = document.getElementById('eq-text').value.trim()
+  const time   = parseInt(document.getElementById('eq-time').value)   || 20
+  const points = parseInt(document.getElementById('eq-points').value) || 1000
+
+  if (!text) { showToast('Zadej text otázky'); return }
+
+  const choices = [0,1,2,3].map(i => ({
+    text:        document.getElementById('eq-c'  + i).value.trim(),
+    is_correct:  document.getElementById('eq-ok' + i).checked,
+    order_index: i
+  })).filter(c => c.text)
+
+  if (choices.length < 2) { showToast('Zadej alespoň 2 odpovědi'); return }
+  if (!choices.some(c => c.is_correct)) { showToast('Označ správnou odpověď (✓)'); return }
+
+  // Obrázek
+  let imageUrl = EQ.origImageUrl
+  if (EQ.newImageUrl === '') {
+    imageUrl = null
+  } else if (EQ.newImageUrl === null) {
+    const imgFile = document.getElementById('eq-image').files[0]
+    if (imgFile) {
+      showToast('Nahrávám obrázek…')
+      imageUrl = await uploadImage(imgFile)
+      if (!imageUrl) return
+    }
+  }
+
+  await sb.from('questions').update({ text, time_limit: time, points, image_url: imageUrl }).eq('id', EQ.id)
+  await sb.from('choices').delete().eq('question_id', EQ.id)
+  await sb.from('choices').insert(choices.map(c => ({ ...c, question_id: EQ.id })))
+
+  closeEditModal()
+  await openEditor(S.currentQuiz.id)
+  showToast('Otázka uložena ✓')
+}
 
 // ═══════════════════════════════════════════════
 //  IMAGE UPLOAD
