@@ -499,6 +499,10 @@ const R = {
   totalQ:    0,
 }
 
+let qType         = 'multiple_choice'
+let orderingItems = ['', '', '']
+let EQ = { id: null, origImageUrl: null, newImageUrl: undefined, type: 'multiple_choice', orderingItems: [] }
+
 // ═══════════════════════════════════════════════
 //  NAVIGACE
 // ═══════════════════════════════════════════════
@@ -1074,9 +1078,6 @@ async function skipToNext() {
 // ═══════════════════════════════════════════════
 //  EDIT QUESTION MODAL
 // ═══════════════════════════════════════════════
-let qType        = 'multiple_choice'
-let orderingItems = ['', '', '']
-let EQ = { id: null, origImageUrl: null, newImageUrl: undefined, type: 'multiple_choice', orderingItems: [] }
 
 function editQuestion(id) {
   const q = S.questions.find(x => x.id === id)
