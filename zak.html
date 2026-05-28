@@ -156,6 +156,34 @@
     /* ── Multi-select ── */
     .q-multi-hint { font-size: .8rem; color: var(--muted); text-align: center; margin-bottom: .5rem; }
     .confirm-wrap { margin-top: .75rem; }
+
+    /* ── Text / Numeric answer ── */
+    .text-answer-wrap { grid-column: 1/-1; }
+    .text-answer-wrap input[type="text"], .text-answer-wrap input[type="number"] {
+      width: 100%; background: var(--card); border: 2px solid var(--card2);
+      border-radius: 12px; padding: .9rem 1rem; color: var(--text);
+      font-family: 'Nunito', sans-serif; font-size: 1.3rem; font-weight: 700;
+      outline: none; text-align: center; margin-bottom: .75rem; transition: border-color .15s;
+    }
+    .text-answer-wrap input:focus { border-color: var(--accent); }
+
+    /* ── Ordering ── */
+    .ordering-wrap { grid-column: 1/-1; }
+    .ordering-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
+    .order-item {
+      background: var(--card2); border-radius: 10px; padding: .85rem 1rem;
+      display: flex; align-items: center; gap: .75rem;
+      cursor: grab; user-select: none; font-weight: 700; touch-action: none;
+      transition: opacity .15s;
+    }
+    .order-item.dragging  { opacity: .35; cursor: grabbing; }
+    .order-item.drag-over { outline: 2px solid var(--accent); }
+    .drag-handle { font-size: 1.2rem; color: var(--muted); flex-shrink: 0; }
+    .order-num   {
+      width: 26px; height: 26px; background: var(--bg); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; font-weight: 900; flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -350,31 +378,68 @@ async function loadQuestion(quizId, idx, startedAt) {
   curQuestion = questions[idx]
   if (!curQuestion) return
 
-  const choices      = (curQuestion.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
-  const correctCount = choices.filter(c => c.is_correct).length
-  const isMulti      = correctCount > 1
-  const icons        = ['▲','◆','●','■']
-  const cls          = ['cbA','cbB','cbC','cbD']
+  const qType  = curQuestion.type || 'multiple_choice'
+  const sorted = (curQuestion.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
 
   document.getElementById('q-meta').textContent = `Otázka ${idx+1} / ${session.total_questions}`
   document.getElementById('q-text').textContent = curQuestion.text
-  document.getElementById('choices').innerHTML  = choices.map((c,i) => `
-    <button class="choice-btn ${cls[i]}" id="cb-${c.id}" onclick="handleChoiceClick('${c.id}')">
-      <div class="cb-icon">${icons[i]}</div>
-      <div class="cb-text">${esc(c.text)}</div>
-    </button>`).join('')
-
-  // Multi-select hint + confirm button
-  document.getElementById('q-multi-hint').classList.toggle('hidden', !isMulti)
+  document.getElementById('q-multi-hint').classList.add('hidden')
   document.getElementById('confirm-wrap').classList.add('hidden')
 
   const imgEl = document.getElementById('q-image')
-  if (curQuestion.image_url) {
-    imgEl.src = curQuestion.image_url
-    imgEl.classList.add('visible')
-  } else {
-    imgEl.src = ''
-    imgEl.classList.remove('visible')
+  if (curQuestion.image_url) { imgEl.src = curQuestion.image_url; imgEl.classList.add('visible') }
+  else                        { imgEl.src = '';                    imgEl.classList.remove('visible') }
+
+  const choicesEl = document.getElementById('choices')
+
+  if (qType === 'multiple_choice' || qType === 'true_false') {
+    const icons = qType === 'true_false' ? ['✓','✗'] : ['▲','◆','●','■']
+    const cls   = qType === 'true_false' ? ['cbA','cbB'] : ['cbA','cbB','cbC','cbD']
+    choicesEl.innerHTML = sorted.map((c, i) => `
+      <button class="choice-btn ${cls[i]}" id="cb-${c.id}" onclick="handleChoiceClick('${c.id}')">
+        <div class="cb-icon">${icons[i]}</div>
+        <div class="cb-text">${esc(c.text)}</div>
+      </button>`).join('')
+
+    if (qType === 'multiple_choice' && sorted.filter(c => c.is_correct).length > 1) {
+      document.getElementById('q-multi-hint').classList.remove('hidden')
+    }
+
+  } else if (qType === 'text') {
+    choicesEl.innerHTML = `
+      <div class="text-answer-wrap">
+        <input type="text" id="text-ans" placeholder="Napiš odpověď…"
+               onkeydown="if(event.key==='Enter') submitTextAnswer()">
+        <button class="btn btn-success" onclick="submitTextAnswer()">Odeslat →</button>
+      </div>`
+    setTimeout(() => document.getElementById('text-ans')?.focus(), 120)
+
+  } else if (qType === 'numeric') {
+    choicesEl.innerHTML = `
+      <div class="text-answer-wrap">
+        <input type="number" id="num-ans" step="any" placeholder="Zadej číslo…"
+               onkeydown="if(event.key==='Enter') submitNumericAnswer()">
+        <button class="btn btn-success" onclick="submitNumericAnswer()">Odeslat →</button>
+      </div>`
+    setTimeout(() => document.getElementById('num-ans')?.focus(), 120)
+
+  } else if (qType === 'ordering') {
+    const shuffled = [...sorted].sort(() => Math.random() - 0.5)
+    choicesEl.innerHTML = `
+      <div class="ordering-wrap">
+        <div id="ordering-list" class="ordering-list">
+          ${shuffled.map((c, i) => `
+            <div class="order-item" data-id="${c.id}" draggable="true"
+                 ondragstart="odStart(event)" ondragover="odOver(event)"
+                 ondragleave="odLeave(event)" ondrop="odDrop(event)" ondragend="odEnd(event)"
+                 ontouchstart="otStart(event)" ontouchmove="otMove(event)" ontouchend="otEnd(event)">
+              <span class="drag-handle">≡</span>
+              <span class="order-num">${i + 1}</span>
+              <span style="flex:1">${esc(c.text)}</span>
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-success" onclick="submitOrdering()">Potvrdit pořadí →</button>
+      </div>`
   }
 
   showView('question')
@@ -436,38 +501,130 @@ async function submitAnswer(choiceIds) {
   const choices     = curQuestion.choices || []
   const correctIds  = new Set(choices.filter(c => c.is_correct).map(c => c.id))
   const selectedSet = new Set(choiceIds)
+  const isCorrect   = correctIds.size === selectedSet.size &&
+                      [...correctIds].every(id => selectedSet.has(id))
+  const timeTaken   = (Date.now() - qStartedAt) / 1000
+  const pts         = isCorrect ? calcPoints(curQuestion.time_limit, timeTaken, curQuestion.points) : 0
 
-  // Správně = vybrány přesně všechny správné a žádná špatná
-  const isCorrect = correctIds.size === selectedSet.size &&
-                    [...correctIds].every(id => selectedSet.has(id))
-
-  const timeTaken = (Date.now() - qStartedAt) / 1000
-  const pts = isCorrect ? calcPoints(curQuestion.time_limit, timeTaken, curQuestion.points) : 0
-
-  // Vizuálně označit vybrané odpovědi
   document.querySelectorAll('.choice-btn').forEach(b => b.classList.add('answered'))
-  choiceIds.forEach(id => {
-    const btn = document.getElementById('cb-' + id)
-    if (btn) btn.classList.add('selected')
-  })
+  choiceIds.forEach(id => { const b = document.getElementById('cb-'+id); if(b) b.classList.add('selected') })
 
-  // Ulož do DB (jeden řádek na otázku)
-  await sb.from('responses').insert({
-    session_id:    session.id,
-    question_id:   curQuestion.id,
-    player_id:     player.id,
-    choice_id:     choiceIds[0] || null,
-    is_correct:    isCorrect,
-    time_taken:    timeTaken,
-    points_earned: pts
-  })
+  doSubmit(choiceIds[0] || null, isCorrect, timeTaken, pts)
+}
 
-  // Aktualizuj skóre
+function submitTextAnswer() {
+  if (answered) return
+  const val = document.getElementById('text-ans')?.value.trim()
+  if (!val) return
+  const correct = (curQuestion.choices || []).find(c => c.is_correct)?.text || ''
+  const isOk    = val.toLowerCase() === correct.toLowerCase()
+  const t       = (Date.now() - qStartedAt) / 1000
+  const pts     = isOk ? calcPoints(curQuestion.time_limit, t, curQuestion.points) : 0
+  answered = true; clearInterval(timerInt)
+  doSubmit(null, isOk, t, pts, val)
+}
+
+function submitNumericAnswer() {
+  if (answered) return
+  const val = document.getElementById('num-ans')?.value.trim()
+  if (!val) return
+  const correct = parseFloat((curQuestion.choices || []).find(c => c.is_correct)?.text || '0')
+  const tol     = parseFloat(curQuestion.tolerance) || 0
+  const isOk    = Math.abs(parseFloat(val) - correct) <= tol
+  const t       = (Date.now() - qStartedAt) / 1000
+  const pts     = isOk ? calcPoints(curQuestion.time_limit, t, curQuestion.points) : 0
+  answered = true; clearInterval(timerInt)
+  doSubmit(null, isOk, t, pts, val)
+}
+
+function submitOrdering() {
+  if (answered) return
+  const list = document.getElementById('ordering-list')
+  if (!list) return
+  const studentOrder = [...list.querySelectorAll('.order-item')].map(el => el.dataset.id)
+  const correctOrder = (curQuestion.choices || []).slice()
+    .sort((a,b) => a.order_index - b.order_index).map(c => c.id)
+  const isOk = studentOrder.every((id, i) => id === correctOrder[i])
+  const t    = (Date.now() - qStartedAt) / 1000
+  const pts  = isOk ? calcPoints(curQuestion.time_limit, t, curQuestion.points) : 0
+  answered = true; clearInterval(timerInt)
+  doSubmit(null, isOk, t, pts, JSON.stringify(studentOrder))
+}
+
+async function doSubmit(choiceId, isCorrect, timeTaken, pts, textAnswer = null) {
   const newScore = (player.score || 0) + pts
+  await sb.from('responses').insert({
+    session_id: session.id, question_id: curQuestion.id, player_id: player.id,
+    choice_id: choiceId, is_correct: isCorrect, time_taken: timeTaken,
+    points_earned: pts, text_answer: textAnswer
+  })
   await sb.from('players').update({ score: newScore }).eq('id', player.id)
   player.score = newScore
-
   setTimeout(() => showResult(isCorrect, timeTaken, pts), 400)
+}
+
+// ═══════════════════════════════════════════════
+//  DRAG AND DROP (ordering)
+// ═══════════════════════════════════════════════
+let odSrc = null, otSrc = null, otGhost = null
+
+function odStart(e)  { odSrc = e.currentTarget; odSrc.classList.add('dragging'); e.dataTransfer.effectAllowed='move' }
+function odEnd(e)    { e.currentTarget.classList.remove('dragging'); document.querySelectorAll('.order-item').forEach(el=>el.classList.remove('drag-over')) }
+function odOver(e)   { e.preventDefault(); if(e.currentTarget!==odSrc) e.currentTarget.classList.add('drag-over') }
+function odLeave(e)  { e.currentTarget.classList.remove('drag-over') }
+function odDrop(e)   {
+  e.preventDefault()
+  const tgt = e.currentTarget; tgt.classList.remove('drag-over')
+  if (odSrc && tgt !== odSrc) {
+    const list = tgt.parentNode
+    const si = [...list.children].indexOf(odSrc), ti = [...list.children].indexOf(tgt)
+    list.insertBefore(odSrc, si < ti ? tgt.nextSibling : tgt)
+    updateOrdNums()
+  }
+}
+function updateOrdNums() {
+  document.querySelectorAll('#ordering-list .order-num').forEach((el, i) => el.textContent = i + 1)
+}
+
+function otStart(e) {
+  if (answered) return; e.preventDefault()
+  otSrc = e.currentTarget; otSrc.classList.add('dragging')
+  const t = e.touches[0]
+  otGhost = otSrc.cloneNode(true)
+  Object.assign(otGhost.style, {
+    position:'fixed', width: otSrc.offsetWidth+'px', opacity:'.75',
+    pointerEvents:'none', zIndex:'999', margin:'0', borderRadius:'10px',
+    left: t.clientX - otSrc.offsetWidth/2 + 'px',
+    top:  t.clientY - 28 + 'px'
+  })
+  document.body.appendChild(otGhost)
+}
+function otMove(e) {
+  e.preventDefault(); if (!otSrc) return
+  const t = e.touches[0]
+  if (otGhost) { otGhost.style.left = t.clientX - otSrc.offsetWidth/2 + 'px'; otGhost.style.top = t.clientY - 28 + 'px' }
+  otGhost.style.display = 'none'
+  const under = document.elementFromPoint(t.clientX, t.clientY)
+  otGhost.style.display = ''
+  document.querySelectorAll('.order-item').forEach(el => el.classList.remove('drag-over'))
+  const tgt = under?.closest?.('.order-item')
+  if (tgt && tgt !== otSrc) tgt.classList.add('drag-over')
+}
+function otEnd(e) {
+  if (!otSrc) return
+  const t = e.changedTouches[0]
+  if (otGhost) { otGhost.style.display = 'none' }
+  const under = document.elementFromPoint(t.clientX, t.clientY)
+  if (otGhost) { otGhost.remove(); otGhost = null }
+  document.querySelectorAll('.order-item').forEach(el => el.classList.remove('drag-over'))
+  const tgt = under?.closest?.('.order-item')
+  if (tgt && tgt !== otSrc) {
+    const list = tgt.parentNode
+    const si = [...list.children].indexOf(otSrc), ti = [...list.children].indexOf(tgt)
+    list.insertBefore(otSrc, si < ti ? tgt.nextSibling : tgt)
+    updateOrdNums()
+  }
+  otSrc.classList.remove('dragging'); otSrc = null
 }
 
 function showResult(isCorrect, timeTaken, pts) {

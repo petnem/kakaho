@@ -218,6 +218,41 @@
     .lcD { background: rgba(46,204,113,.25); color: var(--green); }
     .live-q-image { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin: .5rem 0; display: none; }
     .live-q-image.visible { display: block; }
+
+    /* ── Type tabs ── */
+    .type-tabs { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .type-tab {
+      padding: .35rem .75rem; border-radius: 6px; border: 2px solid var(--card2);
+      background: transparent; color: var(--muted); cursor: pointer;
+      font-family: 'Nunito', sans-serif; font-size: .82rem; font-weight: 700;
+      transition: border-color .15s, color .15s;
+    }
+    .type-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(233,69,96,.08); }
+    .type-tab:hover  { border-color: var(--text); color: var(--text); }
+
+    /* ── Ordering editor ── */
+    .order-editor-list { display: flex; flex-direction: column; gap: .35rem; margin: .4rem 0; }
+    .order-editor-item {
+      display: flex; align-items: center; gap: .4rem;
+      background: var(--bg); border-radius: 8px; padding: .4rem .6rem;
+    }
+    .order-editor-num { font-weight: 800; font-size: .85rem; color: var(--muted); width: 20px; flex-shrink: 0; }
+    .order-editor-item input { flex: 1; }
+
+    /* ── Type badge in question list ── */
+    .q-type-badge {
+      display: inline-block; font-size: .7rem; padding: .1rem .45rem; border-radius: 10px;
+      background: var(--card2); color: var(--muted); font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em; margin-left: .4rem; vertical-align: middle;
+    }
+
+    /* ── True/False editor option ── */
+    .tf-editor-option {
+      display: flex; align-items: center; gap: .4rem;
+      background: var(--bg); border-radius: 8px; padding: .55rem .9rem;
+      cursor: pointer; font-weight: 700; font-size: .95rem;
+    }
+    .tf-editor-option input { width: auto; }
   </style>
 </head>
 <body>
@@ -271,6 +306,16 @@
     <div class="editor-card">
       <div class="section-title" style="font-size:1rem; margin-bottom:.75rem;">Přidat otázku</div>
       <div class="form-group">
+        <label>Typ otázky</label>
+        <div class="type-tabs">
+          <button class="type-tab active" data-type="multiple_choice" onclick="setQType('multiple_choice')">Výběr</button>
+          <button class="type-tab" data-type="true_false"     onclick="setQType('true_false')">Pravda/Nepravda</button>
+          <button class="type-tab" data-type="text"           onclick="setQType('text')">Slovní</button>
+          <button class="type-tab" data-type="numeric"        onclick="setQType('numeric')">Číselná</button>
+          <button class="type-tab" data-type="ordering"       onclick="setQType('ordering')">Řazení</button>
+        </div>
+      </div>
+      <div class="form-group">
         <label>Text otázky</label>
         <textarea id="q-text" placeholder="Napiš otázku…" rows="2"></textarea>
       </div>
@@ -290,14 +335,7 @@
           <input type="number" id="q-points" value="1000" min="100" max="2000" step="100">
         </div>
       </div>
-      <label style="margin-bottom:.5rem;">Odpovědi (✓ = správná)</label>
-      <div class="choices-grid">
-        <div class="choice-item" id="cw0"><div class="choice-letter cA">A</div><input type="text" id="c0" placeholder="Odpověď A"><input type="checkbox" id="ok0" title="Správná"></div>
-        <div class="choice-item" id="cw1"><div class="choice-letter cB">B</div><input type="text" id="c1" placeholder="Odpověď B"><input type="checkbox" id="ok1" title="Správná"></div>
-        <div class="choice-item" id="cw2"><div class="choice-letter cC">C</div><input type="text" id="c2" placeholder="Odpověď C"><input type="checkbox" id="ok2" title="Správná"></div>
-        <div class="choice-item" id="cw3"><div class="choice-letter cD">D</div><input type="text" id="c3" placeholder="Odpověď D"><input type="checkbox" id="ok3" title="Správná"></div>
-      </div>
-      <div class="hint">Zaškrtni checkbox u správné odpovědi. Stačí 2 odpovědi.</div>
+      <div id="q-type-area"></div>
       <button class="btn btn-primary btn-block" style="margin-top:1rem;" onclick="addQuestion()">+ Přidat otázku</button>
     </div>
   </div>
@@ -423,13 +461,8 @@
         <input type="number" id="eq-points" min="100" max="2000" step="100">
       </div>
     </div>
-    <label style="margin-bottom:.5rem;">Odpovědi (✓ = správná)</label>
-    <div class="choices-grid">
-      <div class="choice-item" id="eq-cw0"><div class="choice-letter cA">A</div><input type="text" id="eq-c0" placeholder="Odpověď A"><input type="checkbox" id="eq-ok0" title="Správná"></div>
-      <div class="choice-item" id="eq-cw1"><div class="choice-letter cB">B</div><input type="text" id="eq-c1" placeholder="Odpověď B"><input type="checkbox" id="eq-ok1" title="Správná"></div>
-      <div class="choice-item" id="eq-cw2"><div class="choice-letter cC">C</div><input type="text" id="eq-c2" placeholder="Odpověď C"><input type="checkbox" id="eq-ok2" title="Správná"></div>
-      <div class="choice-item" id="eq-cw3"><div class="choice-letter cD">D</div><input type="text" id="eq-c3" placeholder="Odpověď D"><input type="checkbox" id="eq-ok3" title="Správná"></div>
-    </div>
+    <div id="eq-type-badge" style="margin-bottom:.6rem; font-size:.82rem; color:var(--muted);"></div>
+    <div id="eq-type-area"></div>
     <div style="display:flex; gap:.5rem; margin-top:1rem;">
       <button class="btn btn-success" onclick="saveEditQuestion()">Uložit</button>
       <button class="btn btn-outline" onclick="closeEditModal()">Zrušit</button>
@@ -564,8 +597,8 @@ function renderQuestionList() {
       <div class="question-num">${i + 1}</div>
       ${q.image_url ? `<img class="question-thumb" src="${esc(q.image_url)}" alt="">` : ''}
       <div style="flex:1">
-        <div class="question-text">${esc(q.text)}</div>
-        <div class="question-meta">⏱ ${q.time_limit}s · ${q.points} bodů · ${q.choices?.length || 0} možností</div>
+        <div class="question-text">${esc(q.text)}<span class="q-type-badge">${typeLabel(q.type)}</span></div>
+        <div class="question-meta">⏱ ${q.time_limit}s · ${q.points} bodů</div>
       </div>
       <div style="display:flex; gap:.4rem; flex-shrink:0;">
         <button class="btn btn-outline btn-sm" onclick="editQuestion('${q.id}')">✏️</button>
@@ -578,17 +611,44 @@ async function addQuestion() {
   const text   = document.getElementById('q-text').value.trim()
   const time   = parseInt(document.getElementById('q-time').value)   || 20
   const points = parseInt(document.getElementById('q-points').value) || 1000
-
   if (!text) { showToast('Zadej text otázky'); return }
 
-  const choices = [0,1,2,3].map(i => ({
-    text:        document.getElementById('c' + i).value.trim(),
-    is_correct:  document.getElementById('ok' + i).checked,
-    order_index: i
-  })).filter(c => c.text)
+  let choices = [], tolerance = null
 
-  if (choices.length < 2) { showToast('Zadej alespoň 2 odpovědi'); return }
-  if (!choices.some(c => c.is_correct)) { showToast('Označ správnou odpověď (✓)'); return }
+  switch (qType) {
+    case 'multiple_choice': {
+      choices = [0,1,2,3].map(i => ({
+        text: document.getElementById('c'+i).value.trim(),
+        is_correct: document.getElementById('ok'+i).checked, order_index: i
+      })).filter(c => c.text)
+      if (choices.length < 2)               { showToast('Zadej alespoň 2 odpovědi'); return }
+      if (!choices.some(c => c.is_correct)) { showToast('Označ správnou odpověď (✓)'); return }
+      break
+    }
+    case 'true_false': {
+      const v = document.querySelector('input[name="tf-c"]:checked')?.value ?? 'true'
+      choices = [
+        { text: 'Pravda',   is_correct: v === 'true',  order_index: 0 },
+        { text: 'Nepravda', is_correct: v === 'false', order_index: 1 },
+      ]; break
+    }
+    case 'text': {
+      const ct = document.getElementById('q-correct-text').value.trim()
+      if (!ct) { showToast('Zadej správnou odpověď'); return }
+      choices = [{ text: ct, is_correct: true, order_index: 0 }]; break
+    }
+    case 'numeric': {
+      const cn = document.getElementById('q-correct-num').value.trim()
+      if (!cn) { showToast('Zadej správnou číselnou hodnotu'); return }
+      tolerance = parseFloat(document.getElementById('q-tolerance').value) || 0
+      choices = [{ text: cn, is_correct: true, order_index: 0 }]; break
+    }
+    case 'ordering': {
+      const texts = orderingItems.map(t => t.trim()).filter(Boolean)
+      if (texts.length < 2) { showToast('Přidej alespoň 2 položky k řazení'); return }
+      choices = texts.map((t, i) => ({ text: t, is_correct: true, order_index: i })); break
+    }
+  }
 
   let imageUrl = null
   const imgFile = document.getElementById('q-image').files[0]
@@ -599,25 +659,24 @@ async function addQuestion() {
   }
 
   const { data: q, error } = await sb.from('questions')
-    .insert({ quiz_id: S.currentQuiz.id, text, time_limit: time, points, order_index: S.questions.length, image_url: imageUrl })
+    .insert({ quiz_id: S.currentQuiz.id, text, time_limit: time, points,
+              order_index: S.questions.length, image_url: imageUrl, type: qType, tolerance })
     .select().single()
   if (error) { showToast('Chyba uložení'); return }
 
   await sb.from('choices').insert(choices.map(c => ({ ...c, question_id: q.id })))
+  resetAddForm()
+  await openEditor(S.currentQuiz.id)
+  showToast('Otázka přidána ✓')
+}
 
-  // Reset formuláře
+function resetAddForm() {
   document.getElementById('q-text').value = ''
   document.getElementById('q-image').value = ''
   const prev = document.getElementById('q-img-preview')
   prev.classList.remove('visible'); prev.src = ''
-  ;[0,1,2,3].forEach(i => {
-    document.getElementById('c' + i).value  = ''
-    document.getElementById('ok' + i).checked = false
-    document.getElementById('cw' + i).classList.remove('correct')
-  })
-
-  await openEditor(S.currentQuiz.id)
-  showToast('Otázka přidána ✓')
+  orderingItems = ['', '', '']
+  setQType('multiple_choice')
 }
 
 async function deleteQuestion(id) {
@@ -781,9 +840,35 @@ function subscribeToResponses(sessionId, questionId) {
 }
 
 function renderLiveChoices(reveal) {
+  const qType = S.questions[S.currentQIdx]?.type || 'multiple_choice'
+  const el    = document.getElementById('live-choices')
+
+  if (qType === 'text' || qType === 'numeric') {
+    const correct = S.currentChoices.find(c => c.is_correct)
+    el.innerHTML = reveal
+      ? `<div class="live-choice lcD correct-choice" style="grid-column:1/-1;">
+           <span>✓</span><span>${esc(correct?.text || '')}</span></div>`
+      : `<div class="live-choice lcB" style="grid-column:1/-1; justify-content:center;">
+           <span>Žáci zadávají odpověď…</span></div>`
+    return
+  }
+
+  if (qType === 'ordering') {
+    const items = reveal
+      ? S.currentChoices  // correct order
+      : [...S.currentChoices].sort(() => Math.random() - 0.5)
+    el.innerHTML = items.map((c, i) => `
+      <div class="live-choice lcB" style="grid-column:1/-1;">
+        <span>${reveal ? i + 1 + '.' : '?'}</span>
+        <span>${esc(c.text)}${reveal ? ' ✓' : ''}</span>
+      </div>`).join('')
+    return
+  }
+
+  // multiple_choice / true_false
   const lcls  = ['lcA','lcB','lcC','lcD']
   const icons = ['🔴','🔵','🟠','🟢']
-  document.getElementById('live-choices').innerHTML = S.currentChoices.map((c, i) => `
+  el.innerHTML = S.currentChoices.map((c, i) => `
     <div class="live-choice ${lcls[i]} ${reveal && c.is_correct ? 'correct-choice' : ''}">
       <span>${icons[i]}</span>
       <span>${esc(c.text)}${reveal && c.is_correct ? ' ✓' : ''}</span>
@@ -862,15 +947,120 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 2500)
 }
 
-// Highlight správné odpovědi v editoru (přidat + edit)
-;[0,1,2,3].forEach(i => {
-  document.getElementById('ok'   + i).addEventListener('change', e => {
-    document.getElementById('cw'  + i).classList.toggle('correct', e.target.checked)
+// Inicializuj typ-area pro add-form
+renderQTypeArea()
+
+// ═══════════════════════════════════════════════
+//  TYPE SELECTOR – add form
+// ═══════════════════════════════════════════════
+function setQType(type) {
+  qType = type
+  document.querySelectorAll('.type-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.type === type))
+  renderQTypeArea()
+}
+
+function renderQTypeArea() {
+  const el = document.getElementById('q-type-area')
+  if (!el) return
+  switch (qType) {
+    case 'multiple_choice': el.innerHTML = mcAreaHTML();      attachMCListeners('');    break
+    case 'true_false':      el.innerHTML = tfAreaHTML();                                break
+    case 'text':            el.innerHTML = textAreaHTML();                              break
+    case 'numeric':         el.innerHTML = numericAreaHTML();                           break
+    case 'ordering':        el.innerHTML = orderingAreaHTML(orderingItems, '');         break
+  }
+}
+
+function mcAreaHTML() {
+  return `
+    <label style="margin-bottom:.5rem;">Odpovědi (✓ = správná)</label>
+    <div class="choices-grid">
+      <div class="choice-item" id="cw0"><div class="choice-letter cA">A</div><input type="text" id="c0" placeholder="Odpověď A"><input type="checkbox" id="ok0" title="Správná"></div>
+      <div class="choice-item" id="cw1"><div class="choice-letter cB">B</div><input type="text" id="c1" placeholder="Odpověď B"><input type="checkbox" id="ok1" title="Správná"></div>
+      <div class="choice-item" id="cw2"><div class="choice-letter cC">C</div><input type="text" id="c2" placeholder="Odpověď C"><input type="checkbox" id="ok2" title="Správná"></div>
+      <div class="choice-item" id="cw3"><div class="choice-letter cD">D</div><input type="text" id="c3" placeholder="Odpověď D"><input type="checkbox" id="ok3" title="Správná"></div>
+    </div>
+    <div class="hint">Zaškrtni checkbox u správné odpovědi. Stačí 2 odpovědi.</div>`
+}
+
+function tfAreaHTML(prefix = '', correctIsTrue = true) {
+  const n = prefix + 'tf-c'
+  return `
+    <div class="form-group">
+      <label>Správná odpověď</label>
+      <div style="display:flex; gap:.75rem;">
+        <label class="tf-editor-option"><input type="radio" name="${n}" value="true"  ${correctIsTrue  ? 'checked' : ''}> ✓ Pravda</label>
+        <label class="tf-editor-option"><input type="radio" name="${n}" value="false" ${!correctIsTrue ? 'checked' : ''}> ✗ Nepravda</label>
+      </div>
+    </div>`
+}
+
+function textAreaHTML(initVal = '') {
+  return `
+    <div class="form-group">
+      <label>Správná odpověď</label>
+      <input type="text" id="q-correct-text" value="${esc(initVal)}" placeholder="Správný text odpovědi…">
+      <div class="hint">Porovnání bez rozlišení velkých/malých písmen.</div>
+    </div>`
+}
+
+function numericAreaHTML(initNum = '', initTol = 0) {
+  return `
+    <div class="row-2">
+      <div class="form-group">
+        <label>Správná hodnota</label>
+        <input type="number" id="q-correct-num" step="any" value="${esc(String(initNum))}" placeholder="Např. 42">
+      </div>
+      <div class="form-group">
+        <label>Tolerance (±)</label>
+        <input type="number" id="q-tolerance" step="any" value="${initTol}" min="0">
+      </div>
+    </div>
+    <div class="hint">Žák zadá číslo v rozsahu ±tolerance od správné hodnoty.</div>`
+}
+
+function orderingAreaHTML(items, cbPrefix) {
+  const rows = items.map((text, i) => `
+    <div class="order-editor-item">
+      <span class="order-editor-num">${i + 1}.</span>
+      <input type="text" value="${esc(text)}" placeholder="Položka ${i + 1}…"
+             oninput="${cbPrefix}OrdItems[${i}]=this.value">
+      <button class="btn btn-outline btn-sm" onclick="${cbPrefix}MoveOrd(${i},-1)" ${i===0?'disabled':''}>↑</button>
+      <button class="btn btn-outline btn-sm" onclick="${cbPrefix}MoveOrd(${i},1)"  ${i===items.length-1?'disabled':''}>↓</button>
+      <button class="btn btn-danger btn-sm"  onclick="${cbPrefix}RemoveOrd(${i})">✕</button>
+    </div>`).join('')
+  return `
+    <label>Správné pořadí (od prvního po poslední)</label>
+    <div class="order-editor-list">${rows}</div>
+    <button class="btn btn-outline btn-sm" style="margin-top:.4rem;" onclick="${cbPrefix}AddOrd()">+ Přidat položku</button>
+    <div class="hint">Žáci budou přetahovat položky do tohoto pořadí.</div>`
+}
+
+function attachMCListeners(prefix) {
+  ;[0,1,2,3].forEach(i => {
+    const cb   = document.getElementById(prefix + 'ok' + i)
+    const wrap = document.getElementById(prefix + 'cw' + i)
+    if (cb && wrap) cb.addEventListener('change', e =>
+      wrap.classList.toggle('correct', e.target.checked))
   })
-  document.getElementById('eq-ok' + i).addEventListener('change', e => {
-    document.getElementById('eq-cw' + i).classList.toggle('correct', e.target.checked)
-  })
-})
+}
+
+// ── Ordering add-form callbacks ──
+const OrdItems  = new Proxy([], { get: (t,p) => orderingItems[p], set: (t,p,v) => { orderingItems[p]=v; return true } })
+function AddOrd()        { orderingItems.push(''); renderQTypeArea() }
+function RemoveOrd(i)    { if (orderingItems.length<=2){showToast('Min. 2 položky');return} orderingItems.splice(i,1); renderQTypeArea() }
+function MoveOrd(i, dir) { const j=i+dir; if(j<0||j>=orderingItems.length)return; [orderingItems[i],orderingItems[j]]=[orderingItems[j],orderingItems[i]]; renderQTypeArea() }
+
+// ── Ordering edit-modal callbacks ──
+const eqOrdItems = new Proxy([], { get:(t,p)=>EQ.orderingItems[p], set:(t,p,v)=>{EQ.orderingItems[p]=v;return true} })
+function eqAddOrd()        { EQ.orderingItems.push(''); renderEqOrderingArea() }
+function eqRemoveOrd(i)    { if(EQ.orderingItems.length<=2){showToast('Min. 2 položky');return} EQ.orderingItems.splice(i,1); renderEqOrderingArea() }
+function eqMoveOrd(i, dir) { const j=i+dir; if(j<0||j>=EQ.orderingItems.length)return; [EQ.orderingItems[i],EQ.orderingItems[j]]=[EQ.orderingItems[j],EQ.orderingItems[i]]; renderEqOrderingArea() }
+
+function typeLabel(type) {
+  return { multiple_choice:'Výběr', true_false:'P/N', text:'Slovní', numeric:'Číselná', ordering:'Řazení' }[type] || 'Výběr'
+}
 
 // ═══════════════════════════════════════════════
 //  SKIP TO NEXT (bez žebříčku)
@@ -884,41 +1074,85 @@ async function skipToNext() {
 // ═══════════════════════════════════════════════
 //  EDIT QUESTION MODAL
 // ═══════════════════════════════════════════════
-let EQ = { id: null, origImageUrl: null, newImageUrl: undefined }
+let qType        = 'multiple_choice'
+let orderingItems = ['', '', '']
+let EQ = { id: null, origImageUrl: null, newImageUrl: undefined, type: 'multiple_choice', orderingItems: [] }
 
 function editQuestion(id) {
   const q = S.questions.find(x => x.id === id)
   if (!q) return
-  EQ.id          = id
-  EQ.origImageUrl = q.image_url || null
-  EQ.newImageUrl  = undefined   // undefined = beze změny
+  EQ.id            = id
+  EQ.origImageUrl  = q.image_url || null
+  EQ.newImageUrl   = undefined
+  EQ.type          = q.type || 'multiple_choice'
+  EQ.orderingItems = (q.choices || []).slice()
+    .sort((a,b) => a.order_index - b.order_index).map(c => c.text)
 
   document.getElementById('eq-text').value   = q.text
   document.getElementById('eq-time').value   = q.time_limit
   document.getElementById('eq-points').value = q.points
+  document.getElementById('eq-type-badge').textContent = 'Typ: ' + typeLabel(EQ.type)
 
-  // Obrázek
   const prev   = document.getElementById('eq-img-preview')
   const remBtn = document.getElementById('eq-img-remove')
-  if (q.image_url) {
-    prev.src = q.image_url; prev.style.display = 'block'
-    remBtn.style.display = 'inline-block'
-  } else {
-    prev.src = ''; prev.style.display = 'none'
-    remBtn.style.display = 'none'
-  }
+  if (q.image_url) { prev.src = q.image_url; prev.style.display='block'; remBtn.style.display='inline-block' }
+  else             { prev.src = '';           prev.style.display='none';  remBtn.style.display='none' }
   document.getElementById('eq-image').value = ''
 
-  // Odpovědi
-  const sorted = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
-  ;[0,1,2,3].forEach(i => {
-    const c = sorted[i] || { text: '', is_correct: false }
-    document.getElementById('eq-c'  + i).value   = c.text
-    document.getElementById('eq-ok' + i).checked = c.is_correct
-    document.getElementById('eq-cw' + i).classList.toggle('correct', c.is_correct)
-  })
-
+  renderEqTypeArea(q)
   document.getElementById('modal-edit-q').classList.remove('hidden')
+}
+
+function renderEqTypeArea(q) {
+  const el   = document.getElementById('eq-type-area')
+  const type = EQ.type
+  const sorted = (q?.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+
+  switch (type) {
+    case 'multiple_choice': {
+      el.innerHTML = `
+        <label style="margin-bottom:.5rem;">Odpovědi (✓ = správná)</label>
+        <div class="choices-grid">
+          <div class="choice-item" id="eq-cw0"><div class="choice-letter cA">A</div><input type="text" id="eq-c0" placeholder="Odpověď A"><input type="checkbox" id="eq-ok0" title="Správná"></div>
+          <div class="choice-item" id="eq-cw1"><div class="choice-letter cB">B</div><input type="text" id="eq-c1" placeholder="Odpověď B"><input type="checkbox" id="eq-ok1" title="Správná"></div>
+          <div class="choice-item" id="eq-cw2"><div class="choice-letter cC">C</div><input type="text" id="eq-c2" placeholder="Odpověď C"><input type="checkbox" id="eq-ok2" title="Správná"></div>
+          <div class="choice-item" id="eq-cw3"><div class="choice-letter cD">D</div><input type="text" id="eq-c3" placeholder="Odpověď D"><input type="checkbox" id="eq-ok3" title="Správná"></div>
+        </div>`
+      sorted.forEach((c, i) => {
+        if (i > 3) return
+        document.getElementById('eq-c' + i).value    = c.text
+        document.getElementById('eq-ok' + i).checked = c.is_correct
+        document.getElementById('eq-cw' + i).classList.toggle('correct', c.is_correct)
+      })
+      attachMCListeners('eq-')
+      break
+    }
+    case 'true_false': {
+      const correctIsTrue = (sorted.find(c => c.is_correct)?.text === 'Pravda')
+      el.innerHTML = tfAreaHTML('eq-', correctIsTrue)
+      break
+    }
+    case 'text': {
+      el.innerHTML = textAreaHTML(sorted.find(c => c.is_correct)?.text || '')
+      el.querySelector('input').id = 'eq-correct-text'
+      break
+    }
+    case 'numeric': {
+      el.innerHTML = numericAreaHTML(sorted.find(c => c.is_correct)?.text || '', q?.tolerance || 0)
+      el.querySelector('#q-correct-num').id = 'eq-correct-num'
+      el.querySelector('#q-tolerance').id   = 'eq-tolerance'
+      break
+    }
+    case 'ordering': {
+      renderEqOrderingArea()
+      break
+    }
+  }
+}
+
+function renderEqOrderingArea() {
+  document.getElementById('eq-type-area').innerHTML =
+    orderingAreaHTML(EQ.orderingItems, 'eq')
 }
 
 function closeEditModal() {
@@ -928,20 +1162,18 @@ function closeEditModal() {
 function previewEqImage(e) {
   const file = e.target.files[0]
   if (!file) return
-  const prev   = document.getElementById('eq-img-preview')
-  const remBtn = document.getElementById('eq-img-remove')
-  prev.src = URL.createObjectURL(file)
-  prev.style.display = 'block'
-  remBtn.style.display = 'inline-block'
-  EQ.newImageUrl = null  // bude nahráno při uložení
+  const prev = document.getElementById('eq-img-preview')
+  const rem  = document.getElementById('eq-img-remove')
+  prev.src = URL.createObjectURL(file); prev.style.display = 'block'
+  rem.style.display = 'inline-block'
+  EQ.newImageUrl = null
 }
 
 function removeEditImage() {
-  EQ.newImageUrl = ''   // prázdný řetězec = smazat
-  const prev   = document.getElementById('eq-img-preview')
-  const remBtn = document.getElementById('eq-img-remove')
-  prev.src = ''; prev.style.display = 'none'
-  remBtn.style.display = 'none'
+  EQ.newImageUrl = ''
+  const prev = document.getElementById('eq-img-preview')
+  const rem  = document.getElementById('eq-img-remove')
+  prev.src = ''; prev.style.display = 'none'; rem.style.display = 'none'
   document.getElementById('eq-image').value = ''
 }
 
@@ -949,32 +1181,56 @@ async function saveEditQuestion() {
   const text   = document.getElementById('eq-text').value.trim()
   const time   = parseInt(document.getElementById('eq-time').value)   || 20
   const points = parseInt(document.getElementById('eq-points').value) || 1000
-
   if (!text) { showToast('Zadej text otázky'); return }
 
-  const choices = [0,1,2,3].map(i => ({
-    text:        document.getElementById('eq-c'  + i).value.trim(),
-    is_correct:  document.getElementById('eq-ok' + i).checked,
-    order_index: i
-  })).filter(c => c.text)
+  let choices = [], tolerance = null
+  const type = EQ.type
 
-  if (choices.length < 2) { showToast('Zadej alespoň 2 odpovědi'); return }
-  if (!choices.some(c => c.is_correct)) { showToast('Označ správnou odpověď (✓)'); return }
-
-  // Obrázek
-  let imageUrl = EQ.origImageUrl
-  if (EQ.newImageUrl === '') {
-    imageUrl = null
-  } else if (EQ.newImageUrl === null) {
-    const imgFile = document.getElementById('eq-image').files[0]
-    if (imgFile) {
-      showToast('Nahrávám obrázek…')
-      imageUrl = await uploadImage(imgFile)
-      if (!imageUrl) return
+  switch (type) {
+    case 'multiple_choice': {
+      choices = [0,1,2,3].map(i => ({
+        text: document.getElementById('eq-c'+i).value.trim(),
+        is_correct: document.getElementById('eq-ok'+i).checked, order_index: i
+      })).filter(c => c.text)
+      if (choices.length < 2)               { showToast('Zadej alespoň 2 odpovědi'); return }
+      if (!choices.some(c => c.is_correct)) { showToast('Označ správnou odpověď (✓)'); return }
+      break
+    }
+    case 'true_false': {
+      const v = document.querySelector('input[name="eq-tf-c"]:checked')?.value ?? 'true'
+      choices = [
+        { text: 'Pravda',   is_correct: v === 'true',  order_index: 0 },
+        { text: 'Nepravda', is_correct: v === 'false', order_index: 1 },
+      ]; break
+    }
+    case 'text': {
+      const ct = document.getElementById('eq-correct-text').value.trim()
+      if (!ct) { showToast('Zadej správnou odpověď'); return }
+      choices = [{ text: ct, is_correct: true, order_index: 0 }]; break
+    }
+    case 'numeric': {
+      const cn = document.getElementById('eq-correct-num').value.trim()
+      if (!cn) { showToast('Zadej správnou hodnotu'); return }
+      tolerance = parseFloat(document.getElementById('eq-tolerance').value) || 0
+      choices = [{ text: cn, is_correct: true, order_index: 0 }]; break
+    }
+    case 'ordering': {
+      const texts = EQ.orderingItems.map(t => t.trim()).filter(Boolean)
+      if (texts.length < 2) { showToast('Min. 2 položky'); return }
+      choices = texts.map((t, i) => ({ text: t, is_correct: true, order_index: i })); break
     }
   }
 
-  await sb.from('questions').update({ text, time_limit: time, points, image_url: imageUrl }).eq('id', EQ.id)
+  let imageUrl = EQ.origImageUrl
+  if (EQ.newImageUrl === '')   imageUrl = null
+  else if (EQ.newImageUrl === null) {
+    const f = document.getElementById('eq-image').files[0]
+    if (f) { showToast('Nahrávám obrázek…'); imageUrl = await uploadImage(f); if (!imageUrl) return }
+  }
+
+  await sb.from('questions')
+    .update({ text, time_limit: time, points, image_url: imageUrl, tolerance })
+    .eq('id', EQ.id)
   await sb.from('choices').delete().eq('question_id', EQ.id)
   await sb.from('choices').insert(choices.map(c => ({ ...c, question_id: EQ.id })))
 
