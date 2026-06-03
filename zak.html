@@ -9,19 +9,23 @@
   <script src="config.js"></script>
   <style>
     :root {
-      --bg:     #1a1a2e;
-      --card:   #16213e;
-      --card2:  #0f3460;
-      --accent: #e94560;
-      --text:   #eaeaea;
-      --muted:  #8892a4;
-      --green:  #2ecc71;
-      --red:    #e74c3c;
-      --blue:   #3498db;
+      --bg:     #0f0f1e;
+      --card:   #1a1a35;
+      --card2:  #252550;
+      --accent: #ff2d6b;
+      --text:   #f0f0ff;
+      --muted:  #7a85a3;
+      --green:  #00e676;
+      --red:    #ff1744;
+      --blue:   #448aff;
+      --yellow: #ffd600;
+      --purple: #7c4dff;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; overflow: hidden; }
-    body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); }
+    body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+           background-image: radial-gradient(ellipse at 20% 20%, #1e0a3c 0%, transparent 50%),
+                             radial-gradient(ellipse at 80% 80%, #0a1e3c 0%, transparent 50%); }
 
     /* ── View container ── */
     .view {
@@ -34,8 +38,10 @@
     /* ── JOIN ── */
     .join-top { flex: 1; display: flex; flex-direction: column; justify-content: center; }
     .join-logo { text-align: center; margin-bottom: 2.5rem; }
-    .logo-text  { font-size: 2.4rem; font-weight: 900; color: var(--accent); }
-    .logo-text span { color: var(--text); }
+    .logo-text  { font-size: 2.4rem; font-weight: 900;
+                  background: linear-gradient(135deg, var(--accent), var(--purple));
+                  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .logo-text span { -webkit-text-fill-color: var(--text); color: var(--text); }
     .subtitle   { color: var(--muted); margin-top: .25rem; }
 
     label {
@@ -61,8 +67,8 @@
       -webkit-tap-highlight-color: transparent;
     }
     .btn:active { transform: scale(.97); opacity: .9; }
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-success { background: var(--green);  color: white; }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--purple)); color: white; box-shadow: 0 4px 20px rgba(255,45,107,.35); }
+    .btn-success { background: linear-gradient(135deg, #00e676, #00b0ff); color: #0a1a0a; box-shadow: 0 4px 20px rgba(0,230,118,.3); }
 
     /* ── LOBBY ── */
     .lobby-center {
@@ -105,10 +111,10 @@
     .choice-btn:active { transform: scale(.94); }
     .choice-btn.answered { opacity: .45; pointer-events: none; }
     .choice-btn.selected { outline: 4px solid white; opacity: 1; }
-    .cbA { background: #e74c3c; }
-    .cbB { background: #3498db; }
-    .cbC { background: #e67e22; }
-    .cbD { background: #27ae60; }
+    .cbA { background: linear-gradient(135deg,#ff1744,#c51162); }
+    .cbB { background: linear-gradient(135deg,#448aff,#304ffe); }
+    .cbC { background: linear-gradient(135deg,#ff9100,#e65100); }
+    .cbD { background: linear-gradient(135deg,#00e676,#00796b); }
     .cb-icon { font-size: 1.4rem; margin-bottom: .2rem; }
     .cb-text { font-size: .88rem; }
 
@@ -148,6 +154,30 @@
     .fin-score { font-size: 3.2rem; font-weight: 900; color: var(--accent); }
     .fin-sub   { color: var(--muted); margin-top: .4rem; }
     .fin-rank  { margin-top: 1rem; font-size: .95rem; color: var(--muted); }
+
+    /* ── Avatar picker ── */
+    .avatar-section { margin: .5rem 0 .75rem; }
+    .avatar-picker  { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; margin-top: .4rem; }
+    .avatar-btn     { font-size: 1.6rem; background: var(--card2); border: 2px solid transparent;
+                      border-radius: 10px; padding: .3rem .45rem; cursor: pointer;
+                      transition: transform .12s, border-color .12s; line-height:1; }
+    .avatar-btn.sel { border-color: var(--accent); transform: scale(1.25); }
+
+    /* ── Feedback ── */
+    .feedback-wrap  { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; padding: 1rem 0; }
+    .feedback-title { font-size: 1.7rem; font-weight: 900; text-align: center; }
+    .feedback-block { text-align: center; }
+    .feedback-q     { font-size: 1rem; font-weight: 700; margin-bottom: .5rem; }
+    .star-row       { display: flex; gap: .3rem; justify-content: center; }
+    .star-btn       { font-size: 2rem; background: none; border: none; cursor: pointer; line-height:1;
+                      opacity: .3; transition: opacity .1s, transform .1s; -webkit-tap-highlight-color:transparent; }
+    .star-btn.on    { opacity: 1; transform: scale(1.1); }
+    .feedback-hint  { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+    .skip-btn       { background: none; border: none; color: var(--muted); font-family: 'Nunito', sans-serif;
+                      cursor: pointer; font-size: .9rem; -webkit-tap-highlight-color:transparent; }
+
+    /* ── LB avatar ── */
+    .lb-avatar { font-size: 1.3rem; }
 
     /* ── Question image ── */
     .q-image { width: 100%; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: .75rem; display: none; }
@@ -200,6 +230,31 @@
     <label>Přezdívka</label>
     <input type="text" id="nick-input" placeholder="Tvoje jméno" maxlength="20" autocomplete="off"
            onkeydown="if(event.key==='Enter') joinSession()">
+    <div class="avatar-section">
+      <label>Vyber avatar</label>
+      <div class="avatar-picker" id="avatar-picker">
+        <button class="avatar-btn sel" onclick="pickAvatar(this,'🎮')">🎮</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦁')">🦁</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐯')">🐯</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐺')">🐺</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦊')">🦊</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐸')">🐸</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐙')">🐙</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦄')">🦄</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐉')">🐉</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🤖')">🤖</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'👾')">👾</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🧙')">🧙</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦸')">🦸</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐼')">🐼</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦋')">🦋</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🔥')">🔥</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'⚡')">⚡</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'💎')">💎</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🌙')">🌙</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'⭐')">⭐</button>
+      </div>
+    </div>
     <div id="join-error" class="error-msg"></div>
   </div>
   <button class="btn btn-primary" onclick="joinSession()">Připojit se →</button>
@@ -208,7 +263,7 @@
 <!-- ═══ LOBBY ═══ -->
 <div id="view-lobby" class="view hidden">
   <div class="lobby-center">
-    <div class="avatar">🎮</div>
+    <div class="avatar" id="lobby-avatar">🎮</div>
     <div class="lobby-name" id="lobby-name"></div>
     <div class="pulse-wrap"><div class="pulse"></div><span>Čekám na učitele…</span></div>
     <div class="quiz-badge" id="lobby-quiz"></div>
@@ -247,6 +302,37 @@
   <div class="lb-list" id="lb-list"><div class="lb-wait">Načítám…</div></div>
 </div>
 
+<!-- ═══ FEEDBACK ═══ -->
+<div id="view-feedback" class="view hidden">
+  <div class="feedback-wrap">
+    <div class="feedback-title">Hotovo! 🎉</div>
+    <div class="feedback-block">
+      <div class="feedback-q">Jak těžký byl kvíz?</div>
+      <div class="star-row" id="diff-stars">
+        <button class="star-btn" onclick="setDiff(1)">★</button>
+        <button class="star-btn" onclick="setDiff(2)">★</button>
+        <button class="star-btn" onclick="setDiff(3)">★</button>
+        <button class="star-btn" onclick="setDiff(4)">★</button>
+        <button class="star-btn" onclick="setDiff(5)">★</button>
+      </div>
+      <div class="feedback-hint">1 = super easy · 5 = hodně těžký</div>
+    </div>
+    <div class="feedback-block">
+      <div class="feedback-q">Jak se ti dařilo?</div>
+      <div class="star-row" id="self-stars">
+        <button class="star-btn" onclick="setSelf(1)">★</button>
+        <button class="star-btn" onclick="setSelf(2)">★</button>
+        <button class="star-btn" onclick="setSelf(3)">★</button>
+        <button class="star-btn" onclick="setSelf(4)">★</button>
+        <button class="star-btn" onclick="setSelf(5)">★</button>
+      </div>
+      <div class="feedback-hint">1 = špatně · 5 = výborně</div>
+    </div>
+    <button class="btn btn-primary" onclick="submitFeedback()" style="max-width:280px;width:100%">Odeslat →</button>
+    <button class="skip-btn" onclick="showActualFinished()">Přeskočit</button>
+  </div>
+</div>
+
 <!-- ═══ FINISHED ═══ -->
 <div id="view-finished" class="view hidden">
   <div class="fin-center">
@@ -272,6 +358,88 @@ let answered        = false
 let timerInt        = null
 let sessionSub      = null
 let selectedChoices = new Set()
+let selectedAvatar  = '🎮'
+let feedbackDiff    = 0
+let feedbackSelf    = 0
+
+// ═══════════════════════════════════════════════
+//  AVATAR
+// ═══════════════════════════════════════════════
+function pickAvatar(btn, emoji) {
+  document.querySelectorAll('.avatar-btn').forEach(b => b.classList.remove('sel'))
+  btn.classList.add('sel')
+  selectedAvatar = emoji
+}
+
+// ═══════════════════════════════════════════════
+//  ZVUKY (Web Audio API)
+// ═══════════════════════════════════════════════
+let _ac = null
+function getAC() {
+  if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)()
+  return _ac
+}
+function playSound(type) {
+  try {
+    const ac = getAC()
+    const g  = ac.createGain(); g.connect(ac.destination)
+    const o  = ac.createOscillator(); o.connect(g)
+    const t  = ac.currentTime
+    if (type === 'correct') {
+      o.type = 'sine'
+      o.frequency.setValueAtTime(523, t); o.frequency.setValueAtTime(659, t+.1); o.frequency.setValueAtTime(784, t+.2)
+      g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t+.55)
+      o.start(t); o.stop(t+.55)
+    } else if (type === 'wrong') {
+      o.type = 'sawtooth'
+      o.frequency.setValueAtTime(220, t); o.frequency.setValueAtTime(160, t+.18)
+      g.gain.setValueAtTime(.09, t); g.gain.exponentialRampToValueAtTime(.001, t+.35)
+      o.start(t); o.stop(t+.35)
+    } else if (type === 'tick') {
+      o.type = 'sine'; o.frequency.value = 900
+      g.gain.setValueAtTime(.04, t); g.gain.exponentialRampToValueAtTime(.001, t+.06)
+      o.start(t); o.stop(t+.06)
+    } else if (type === 'finish') {
+      o.type = 'sine'
+      o.frequency.setValueAtTime(523, t); o.frequency.setValueAtTime(659, t+.1)
+      o.frequency.setValueAtTime(784, t+.2); o.frequency.setValueAtTime(1047, t+.35)
+      g.gain.setValueAtTime(.13, t); g.gain.exponentialRampToValueAtTime(.001, t+.7)
+      o.start(t); o.stop(t+.7)
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════
+//  ZPĚTNÁ VAZBA
+// ═══════════════════════════════════════════════
+function setDiff(n) {
+  feedbackDiff = n
+  document.querySelectorAll('#diff-stars .star-btn').forEach((b,i) => b.classList.toggle('on', i < n))
+}
+function setSelf(n) {
+  feedbackSelf = n
+  document.querySelectorAll('#self-stars .star-btn').forEach((b,i) => b.classList.toggle('on', i < n))
+}
+async function submitFeedback() {
+  if (feedbackDiff > 0 || feedbackSelf > 0) {
+    await sb.from('feedback').insert({
+      session_id:  session.id,
+      player_id:   player.id,
+      difficulty:  feedbackDiff || null,
+      self_rating: feedbackSelf || null
+    })
+  }
+  showActualFinished()
+}
+async function showActualFinished() {
+  const { data: players } = await sb.from('players')
+    .select('id, score').eq('session_id', session.id)
+    .order('score', { ascending: false })
+  const rank = (players||[]).findIndex(p => p.id === player.id) + 1
+  document.getElementById('fin-score').textContent = player.score.toLocaleString('cs-CZ')
+  document.getElementById('fin-rank').textContent  = `${rank}. místo z ${players?.length || 0} hráčů`
+  showView('finished')
+}
 
 // ═══════════════════════════════════════════════
 //  INIT – obnov session nebo předvyplň PIN
@@ -311,14 +479,14 @@ async function joinSession() {
   if (!nick)                      { err.textContent = 'Zadej přezdívku.';          return }
   if (nick.length < 2)            { err.textContent = 'Přezdívka je příliš krátká.'; return }
 
-  // Najdi relaci
+  // Najdi relaci (waiting = čeká, active = právě probíhá – pozdní připojení)
   const { data: sess, error } = await sb.from('sessions')
-    .select('*').eq('pin', pin).eq('status', 'waiting').single()
-  if (error || !sess) { err.textContent = 'Kvíz nenalezen nebo již probíhá.'; return }
+    .select('*').eq('pin', pin).in('status', ['waiting', 'active']).single()
+  if (error || !sess) { err.textContent = 'Kvíz nenalezen nebo již skončil.'; return }
 
   // Přidej hráče
   const { data: p, error: pErr } = await sb.from('players')
-    .insert({ session_id: sess.id, nickname: nick, score: 0 }).select().single()
+    .insert({ session_id: sess.id, nickname: nick, score: 0, avatar: selectedAvatar }).select().single()
   if (pErr) { err.textContent = 'Chyba připojení – zkus to znovu.'; return }
 
   player    = p
@@ -329,9 +497,16 @@ async function joinSession() {
   sessionStorage.setItem('kv_player', JSON.stringify({ playerId: p.id, sessionId: sess.id }))
 
   document.getElementById('lobby-name').textContent = nick
+  document.getElementById('lobby-avatar').textContent = selectedAvatar
   document.getElementById('lobby-quiz').textContent = sess.quiz_title || 'Kvíz'
-  showView('lobby')
+
   subscribeToSession(sess.id)
+  if (sess.status === 'waiting') {
+    showView('lobby')
+  } else {
+    // Pozdní připojení – rovnou na aktuální otázku
+    await loadQuestion(sess.quiz_id, sess.current_question_index, sess.question_started_at)
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -456,6 +631,7 @@ function startCountdown(limit, startedAt) {
     const remaining = Math.max(0, limit - elapsed)
     el.textContent  = Math.ceil(remaining) + 's'
     el.style.color  = remaining < 5 ? 'var(--red)' : remaining < 10 ? 'var(--yellow)' : 'var(--accent)'
+    if (remaining <= 5 && remaining > 0 && Math.ceil(remaining) !== Math.ceil(remaining + 0.5)) playSound('tick')
     if (remaining <= 0) {
       clearInterval(timerInt)
       if (!answered) showResult(false, null, 0)
@@ -628,6 +804,7 @@ function otEnd(e) {
 }
 
 function showResult(isCorrect, timeTaken, pts) {
+  playSound(isCorrect ? 'correct' : 'wrong')
   if (isCorrect) {
     document.getElementById('res-icon').textContent  = '✅'
     document.getElementById('res-label').textContent = 'Správně!'
@@ -655,13 +832,14 @@ function calcPoints(limit, taken, base) {
 // ═══════════════════════════════════════════════
 async function showLeaderboard() {
   const { data: players } = await sb.from('players')
-    .select('id, nickname, score').eq('session_id', session.id)
+    .select('id, nickname, score, avatar').eq('session_id', session.id)
     .order('score', { ascending: false }).limit(10)
 
   const medals = ['🥇','🥈','🥉']
   document.getElementById('lb-list').innerHTML = (players||[]).map((p, i) => `
     <div class="lb-item ${p.id === player.id ? 'me' : ''}">
       <div class="lb-rank">${medals[i] || (i+1)}</div>
+      <div class="lb-avatar">${p.avatar || '🎮'}</div>
       <div class="lb-name">${esc(p.nickname)}${p.id === player.id ? ' ← ty' : ''}</div>
       <div class="lb-score">${p.score.toLocaleString('cs-CZ')}</div>
     </div>`).join('')
@@ -684,8 +862,9 @@ async function rejoinSession(state) {
   session   = sess
   questions = null
 
-  document.getElementById('lobby-name').textContent = p.nickname
-  document.getElementById('lobby-quiz').textContent = sess.quiz_title || 'Kvíz'
+  document.getElementById('lobby-name').textContent  = p.nickname
+  document.getElementById('lobby-avatar').textContent = p.avatar || '🎮'
+  document.getElementById('lobby-quiz').textContent   = sess.quiz_title || 'Kvíz'
 
   if (sess.status === 'finished') {
     sessionStorage.removeItem('kv_player')
@@ -711,15 +890,11 @@ async function showFinished() {
   sessionStorage.removeItem('kv_player')
   if (sessionSub) { sessionSub.unsubscribe(); sessionSub = null }
   clearInterval(timerInt)
-
-  const { data: players } = await sb.from('players')
-    .select('id, score').eq('session_id', session.id)
-    .order('score', { ascending: false })
-
-  const rank = (players||[]).findIndex(p => p.id === player.id) + 1
-  document.getElementById('fin-score').textContent = player.score.toLocaleString('cs-CZ')
-  document.getElementById('fin-rank').textContent  = `${rank}. místo z ${players?.length || 0} hráčů`
-  showView('finished')
+  playSound('finish')
+  // Reset hvězdiček zpětné vazby
+  feedbackDiff = 0; feedbackSelf = 0
+  document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('on'))
+  showView('feedback')
 }
 
 // ═══════════════════════════════════════════════

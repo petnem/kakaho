@@ -253,6 +253,23 @@
       text-transform: uppercase; letter-spacing: .04em; margin-left: .4rem; vertical-align: middle;
     }
 
+    /* ── Import modal ── */
+    .import-drop {
+      border: 2px dashed var(--card2); border-radius: 10px;
+      padding: 1.5rem; text-align: center; color: var(--muted);
+      cursor: pointer; transition: border-color .15s; margin-bottom:.75rem;
+    }
+    .import-drop:hover, .import-drop.over { border-color: var(--accent); color: var(--text); }
+    .import-preview { background: var(--bg); border-radius: 8px; padding: .6rem .9rem;
+                      font-size: .82rem; max-height: 160px; overflow-y: auto; }
+    .import-preview-item { padding: .2rem 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+
+    /* ── Feedback in results ── */
+    .feedback-stats { display: flex; gap: 1.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .feedback-stat  { background: var(--card); border-radius: 10px; padding: .75rem 1.25rem; text-align: center; }
+    .feedback-stat-val { font-size: 1.8rem; font-weight: 900; color: var(--accent); }
+    .feedback-stat-lbl { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
+
     /* ── True/False editor option ── */
     .tf-editor-option {
       display: flex; align-items: center; gap: .4rem;
@@ -298,7 +315,10 @@
   <div class="header">
     <button class="back-btn" onclick="saveAndGoBack()">← Zpět</button>
     <div class="logo">Kvíz<span>App</span></div>
-    <button class="btn btn-success btn-sm" onclick="saveAndGoBack()">Uložit</button>
+    <div style="display:flex;gap:.4rem;">
+      <button class="btn btn-outline btn-sm" onclick="openImportModal()">⬆ Import</button>
+      <button class="btn btn-success btn-sm" onclick="saveAndGoBack()">Uložit</button>
+    </div>
   </div>
   <div class="content">
     <div class="form-group">
@@ -388,7 +408,10 @@
           <span class="answer-count"><span id="ans-count">0</span> / <span id="ans-total">0</span></span>
         </div>
       </div>
-      <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+      <div style="display:flex; gap:.5rem; margin-top:.5rem; flex-wrap:wrap;">
+        <button id="btn-prev-q" class="btn btn-outline" style="flex:0 0 auto; font-size:1rem; padding:.85rem;" onclick="prevQuestion()">
+          ← Zpět
+        </button>
         <button class="btn btn-primary" style="flex:1; font-size:1rem; padding:.85rem;" onclick="teacherShowLeaderboard()">
           📊 Žebříček
         </button>
@@ -427,6 +450,10 @@
       <span style="font-size:.85rem;color:var(--muted);">Relace:</span>
       <select id="results-session-select" onchange="switchResultsSession(this.value)"></select>
     </div>
+    <div id="results-feedback" class="hidden" style="margin-bottom:1.25rem;">
+      <div style="font-size:.85rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Zpětná vazba žáků</div>
+      <div class="feedback-stats" id="feedback-stats"></div>
+    </div>
     <div id="results-empty" class="empty hidden"><div class="empty-icon">📊</div><div>Žádné záznamy</div></div>
     <div style="overflow-x:auto;">
       <table class="results-table" id="results-table">
@@ -440,6 +467,37 @@
         <tbody id="results-body"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: IMPORT ══════════════ -->
+<div id="modal-import" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-title">Import otázek</div>
+    <p style="font-size:.85rem; color:var(--muted); margin-bottom:1rem;">
+      Nahraj soubor <strong>.json</strong> nebo <strong>.csv</strong>. Stávající otázky kvízu zůstanou zachovány.
+    </p>
+    <div class="import-drop" id="import-drop" onclick="document.getElementById('import-file').click()"
+         ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
+      📂 Klikni nebo přetáhni soubor sem
+    </div>
+    <input type="file" id="import-file" accept=".json,.csv" style="display:none" onchange="importFile(event)">
+    <div id="import-preview" class="import-preview hidden"></div>
+    <div id="import-status" style="font-size:.85rem; color:var(--muted); margin:.5rem 0; min-height:1.2em;"></div>
+    <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+      <button class="btn btn-success" id="btn-import-confirm" onclick="confirmImport()" style="flex:1" disabled>
+        ✓ Importovat
+      </button>
+      <button class="btn btn-outline" onclick="closeImportModal()" style="flex:1">Zrušit</button>
+    </div>
+    <details style="margin-top:1rem;">
+      <summary style="font-size:.8rem; color:var(--muted); cursor:pointer;">Formát souborů</summary>
+      <pre style="font-size:.72rem; color:var(--muted); margin-top:.5rem; white-space:pre-wrap;">CSV (středník): typ;otázka;volba1;volba2;volba3;volba4;správná;čas;body
+  typy: mc, tf, text, num, order
+  správná: číslo sloupce volby (1–4), nebo text pro text/num
+
+JSON: [{"type":"mc","text":"Otázka","choices":["A","B","C","D"],"correct":0,"time":20,"points":1000}]</pre>
+    </details>
   </div>
 </div>
 
@@ -773,7 +831,8 @@ function subscribeToPlayers(sessionId) {
         S.players.push(payload.new)
         document.getElementById('player-count').textContent = S.players.length
         const chip = Object.assign(document.createElement('div'), {
-          className: 'player-chip', textContent: payload.new.nickname
+          className: 'player-chip',
+          textContent: (payload.new.avatar || '🎮') + ' ' + payload.new.nickname
         })
         document.getElementById('players-grid').appendChild(chip)
       })
@@ -818,8 +877,45 @@ async function nextQuestion() {
   S.correctRevealed = false
   renderLiveChoices(false)
 
-  // Schovat "Další" pokud je poslední otázka
+  // Schovat "Další" pokud je poslední otázka; schovat "Zpět" pokud je první
   document.getElementById('btn-skip-next').classList.toggle('hidden', S.currentQIdx >= S.questions.length - 1)
+  document.getElementById('btn-prev-q').classList.toggle('hidden', S.currentQIdx <= 0)
+
+  startTimer(q.time_limit)
+  subscribeToResponses(S.session.id, q.id)
+}
+
+async function prevQuestion() {
+  if (S.currentQIdx <= 0) return
+  S.currentQIdx--
+  const q = S.questions[S.currentQIdx]
+  if (!q) return
+  clearInterval(S.timerInterval)
+
+  await sb.from('sessions').update({
+    status: 'active',
+    current_question_index: S.currentQIdx,
+    question_started_at: new Date().toISOString()
+  }).eq('id', S.session.id)
+
+  document.getElementById('sess-leaderboard').classList.add('hidden')
+  document.getElementById('sess-question').classList.remove('hidden')
+  document.getElementById('live-q-num').textContent  = `Otázka ${S.currentQIdx + 1} / ${S.questions.length}`
+  document.getElementById('live-q-text').textContent = q.text
+  document.getElementById('ans-total').textContent   = S.players.length
+  document.getElementById('ans-count').textContent   = '0'
+  document.getElementById('sess-progress').textContent = `${S.currentQIdx + 1}/${S.questions.length}`
+
+  const lqImg = document.getElementById('live-q-image')
+  if (q.image_url) { lqImg.src = q.image_url; lqImg.classList.add('visible') }
+  else             { lqImg.src = '';           lqImg.classList.remove('visible') }
+
+  S.currentChoices  = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+  S.correctRevealed = false
+  renderLiveChoices(false)
+
+  document.getElementById('btn-skip-next').classList.remove('hidden')
+  document.getElementById('btn-prev-q').classList.toggle('hidden', S.currentQIdx <= 0)
 
   startTimer(q.time_limit)
   subscribeToResponses(S.session.id, q.id)
@@ -1317,9 +1413,10 @@ async function loadResults(sessionId, quizTitle, totalQ, createdAt) {
   R.quizTitle = quizTitle
   R.totalQ    = totalQ || 0
 
-  const [{ data: players }, { data: responses }] = await Promise.all([
-    sb.from('players').select('id, nickname, score').eq('session_id', sessionId),
-    sb.from('responses').select('player_id, is_correct').eq('session_id', sessionId)
+  const [{ data: players }, { data: responses }, { data: feedbacks }] = await Promise.all([
+    sb.from('players').select('id, nickname, score, avatar').eq('session_id', sessionId),
+    sb.from('responses').select('player_id, is_correct').eq('session_id', sessionId),
+    sb.from('feedback').select('difficulty, self_rating').eq('session_id', sessionId)
   ])
 
   const map = {}
@@ -1333,11 +1430,27 @@ async function loadResults(sessionId, quizTitle, totalQ, createdAt) {
     const s = map[p.id] || { total: 0, correct: 0 }
     const denom = R.totalQ || s.total
     return {
-      id: p.id, nickname: p.nickname, score: p.score,
+      id: p.id, nickname: p.nickname, score: p.score, avatar: p.avatar || '🎮',
       correct: s.correct, total: denom,
       pct: denom > 0 ? Math.round(s.correct / denom * 100) : 0
     }
   })
+
+  // Zpětná vazba
+  const fbEl = document.getElementById('results-feedback')
+  const fbStats = document.getElementById('feedback-stats')
+  const fbs = feedbacks || []
+  if (fbs.length > 0) {
+    const avgDiff = fbs.filter(f=>f.difficulty).reduce((a,f)=>a+f.difficulty,0) / (fbs.filter(f=>f.difficulty).length||1)
+    const avgSelf = fbs.filter(f=>f.self_rating).reduce((a,f)=>a+f.self_rating,0) / (fbs.filter(f=>f.self_rating).length||1)
+    fbStats.innerHTML = `
+      <div class="feedback-stat"><div class="feedback-stat-val">${fbs.length}</div><div class="feedback-stat-lbl">odpovědí</div></div>
+      <div class="feedback-stat"><div class="feedback-stat-val">${avgDiff.toFixed(1)} ★</div><div class="feedback-stat-lbl">obtížnost (1–5)</div></div>
+      <div class="feedback-stat"><div class="feedback-stat-val">${avgSelf.toFixed(1)} ★</div><div class="feedback-stat-lbl">sebehodnocení (1–5)</div></div>`
+    fbEl.classList.remove('hidden')
+  } else {
+    fbEl.classList.add('hidden')
+  }
 
   document.getElementById('results-title').textContent = quizTitle + ' – Výsledky'
   document.getElementById('results-meta').textContent  =
@@ -1379,7 +1492,7 @@ function renderResultsTable() {
   body.innerHTML = R.players.map(p => `
     <tr>
       <td style="color:var(--muted)">${rankOf[p.id]}</td>
-      <td style="font-weight:700">${esc(p.nickname)}</td>
+      <td style="font-weight:700">${p.avatar || '🎮'} ${esc(p.nickname)}</td>
       <td>${p.correct} / ${p.total}</td>
       <td>
         <span>${p.pct} %</span>
@@ -1399,6 +1512,134 @@ function exportResultsCsv() {
   Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(blob), download: R.quizTitle + '_výsledky.csv'
   }).click()
+}
+
+// ═══════════════════════════════════════════════
+//  IMPORT OTÁZEK (CSV / JSON)
+// ═══════════════════════════════════════════════
+let importParsed = []
+
+function openImportModal() {
+  importParsed = []
+  document.getElementById('import-file').value = ''
+  document.getElementById('import-preview').classList.add('hidden')
+  document.getElementById('import-preview').innerHTML = ''
+  document.getElementById('import-status').textContent = ''
+  document.getElementById('btn-import-confirm').disabled = true
+  document.getElementById('modal-import').classList.remove('hidden')
+}
+function closeImportModal() { document.getElementById('modal-import').classList.add('hidden') }
+function importDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('over') }
+function importDragLeave(e) { e.currentTarget.classList.remove('over') }
+function importDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('over')
+  const file = e.dataTransfer.files[0]
+  if (file) parseImportFile(file)
+}
+function importFile(e) { const file = e.target.files[0]; if (file) parseImportFile(file) }
+
+function parseImportFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase()
+  const reader = new FileReader()
+  reader.onload = ev => {
+    try {
+      if (ext === 'json') importParsed = parseImportJSON(ev.target.result)
+      else                importParsed = parseImportCSV(ev.target.result)
+      showImportPreview()
+    } catch(e) {
+      document.getElementById('import-status').textContent = '⚠ Chyba: ' + e.message
+    }
+  }
+  reader.readAsText(file, 'UTF-8')
+}
+
+function parseImportJSON(text) {
+  const arr = JSON.parse(text)
+  if (!Array.isArray(arr)) throw new Error('JSON musí být pole')
+  return arr.map((q, i) => {
+    if (!q.text) throw new Error(`Otázka ${i+1}: chybí "text"`)
+    const typeMap = { mc:'multiple_choice', tf:'true_false', text:'text', num:'numeric', order:'ordering' }
+    return {
+      type: typeMap[q.type] || q.type || 'multiple_choice',
+      text: q.text, time: q.time || 20, points: q.points || 1000,
+      choices: q.choices || [], correct: q.correct ?? 0,
+      tolerance: q.tolerance || 0
+    }
+  })
+}
+
+function parseImportCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim())
+  const typeMap = { mc:'multiple_choice', tf:'true_false', text:'text', num:'numeric', order:'ordering',
+                    multiple_choice:'multiple_choice', true_false:'true_false', ordering:'ordering' }
+  return lines.map((line, i) => {
+    const cols = line.split(';').map(c => c.trim())
+    if (cols.length < 3) throw new Error(`Řádek ${i+1}: příliš málo sloupců`)
+    const [type, qtext, ...rest] = cols
+    const time   = parseInt(rest[rest.length - 2]) || 20
+    const points = parseInt(rest[rest.length - 1]) || 1000
+    const choices = rest.slice(0, rest.length - 2)
+    // correct je index (1-based) nebo text pro text/num
+    const correctRaw = choices.pop() || ''
+    const correctIdx = parseInt(correctRaw) - 1
+    return {
+      type: typeMap[type] || 'multiple_choice',
+      text: qtext, time, points,
+      choices: choices.filter(Boolean),
+      correct: isNaN(correctIdx) ? correctRaw : correctIdx,
+      tolerance: 0
+    }
+  })
+}
+
+function showImportPreview() {
+  const el = document.getElementById('import-preview')
+  const st = document.getElementById('import-status')
+  el.innerHTML = importParsed.map((q, i) => `
+    <div class="import-preview-item">${i+1}. [${q.type}] ${esc(q.text.slice(0,60))}${q.text.length>60?'…':''}</div>`).join('')
+  el.classList.remove('hidden')
+  st.textContent = `Nalezeno ${importParsed.length} otázek`
+  document.getElementById('btn-import-confirm').disabled = importParsed.length === 0
+}
+
+async function confirmImport() {
+  if (!importParsed.length || !S.currentQuiz) return
+  document.getElementById('btn-import-confirm').disabled = true
+  document.getElementById('import-status').textContent = 'Importuji…'
+
+  const { data: existing } = await sb.from('questions').select('order_index').eq('quiz_id', S.currentQuiz.id).order('order_index', {ascending:false}).limit(1)
+  let orderStart = existing?.[0]?.order_index != null ? existing[0].order_index + 1 : 0
+
+  for (const q of importParsed) {
+    const { data: qRow } = await sb.from('questions').insert({
+      quiz_id: S.currentQuiz.id, text: q.text, type: q.type,
+      time_limit: q.time, points: q.points, order_index: orderStart++,
+      tolerance: q.tolerance || null
+    }).select().single()
+    if (!qRow) continue
+
+    if (q.type === 'multiple_choice' || q.type === 'true_false' || q.type === 'ordering') {
+      const choiceRows = (q.choices || []).map((c, ci) => ({
+        question_id: qRow.id,
+        text: String(c),
+        is_correct: ci === q.correct,
+        order_index: ci
+      }))
+      if (choiceRows.length) await sb.from('choices').insert(choiceRows)
+    } else {
+      // text / numeric: correct answer stored as single choice
+      await sb.from('choices').insert({
+        question_id: qRow.id,
+        text: String(q.correct ?? ''),
+        is_correct: true,
+        order_index: 0
+      })
+    }
+  }
+
+  closeImportModal()
+  await loadEditor(S.currentQuiz.id)
+  showToast(`Importováno ${importParsed.length} otázek ✓`)
 }
 
 // Start
