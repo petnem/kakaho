@@ -289,6 +289,26 @@
                             font-size:.88rem; text-align:center; }
     #auto-adv-countdown { font-size:.85rem; color:var(--muted); margin-top:.5rem; text-align:center; }
 
+    /* ── Grading scale editor ── */
+    .grading-card { background: var(--card); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; border-left: 3px solid var(--blue); }
+    .grading-row  { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .grade-inp-group { display: flex; align-items: center; gap: .35rem; }
+    .grade-badge { display: inline-flex; align-items: center; justify-content: center;
+                   width: 26px; height: 26px; border-radius: 6px; font-weight: 900; font-size: .9rem;
+                   flex-shrink: 0; }
+    .grade-1 { background: rgba(46,204,113,.25); color: var(--green); }
+    .grade-2 { background: rgba(52,152,219,.25); color: var(--blue); }
+    .grade-3 { background: rgba(241,196,15,.25); color: var(--yellow); }
+    .grade-4 { background: rgba(231,76,60,.25); color: #ff6b6b; }
+    .grade-5 { background: rgba(149,165,166,.15); color: var(--muted); }
+    .grade-inp-group input { width: 52px; text-align: center; }
+    .grade-known { font-size: 1.1rem; font-weight: 900; }
+    .grade-known.g1 { color: var(--green); }
+    .grade-known.g2 { color: var(--blue); }
+    .grade-known.g3 { color: var(--yellow); }
+    .grade-known.g4 { color: #ff6b6b; }
+    .grade-known.g5 { color: var(--muted); }
+
     /* ── True/False editor option ── */
     .tf-editor-option {
       display: flex; align-items: center; gap: .4rem;
@@ -343,6 +363,46 @@
     <div class="form-group">
       <label>Název kvízu</label>
       <input type="text" id="edit-quiz-title" placeholder="Název kvízu">
+    </div>
+
+    <!-- Škála hodnocení -->
+    <div class="grading-card" style="margin-top:1.25rem;">
+      <div style="display:flex; align-items:center; gap:.75rem; margin-bottom:.75rem;">
+        <label class="toggle-sw" title="Zapnout hodnocení">
+          <input type="checkbox" id="chk-grading" onchange="toggleGradingUI()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-weight:700;">Hodnocení (převod % → známka)</span>
+      </div>
+      <div id="grading-thresholds" class="hidden">
+        <div style="font-size:.8rem; color:var(--muted); margin-bottom:.6rem;">Minimální úspěšnost pro danou známku:</div>
+        <div class="grading-row">
+          <div class="grade-inp-group">
+            <span class="grade-badge grade-1">1</span>
+            od <input type="number" id="g1" value="90" min="1" max="100"> %
+          </div>
+          <div class="grade-inp-group">
+            <span class="grade-badge grade-2">2</span>
+            od <input type="number" id="g2" value="75" min="1" max="100"> %
+          </div>
+          <div class="grade-inp-group">
+            <span class="grade-badge grade-3">3</span>
+            od <input type="number" id="g3" value="50" min="1" max="100"> %
+          </div>
+          <div class="grade-inp-group">
+            <span class="grade-badge grade-4">4</span>
+            od <input type="number" id="g4" value="25" min="1" max="100"
+                      oninput="document.getElementById('g5-auto').textContent=this.value||25"> %
+          </div>
+          <div class="grade-inp-group">
+            <span class="grade-badge grade-5">5</span>
+            pod <span id="g5-auto" style="font-weight:700;">25</span> %
+          </div>
+        </div>
+        <div style="font-size:.75rem; color:var(--muted); margin-top:.5rem;">
+          Změna vstupů se automaticky uloží při kliknutí na Uložit.
+        </div>
+      </div>
     </div>
 
     <div class="section-title" style="margin-top:1.25rem;">Otázky</div>
@@ -500,6 +560,7 @@
           <th data-sort="nickname" onclick="sortResults('nickname')" >Jméno</th>
           <th data-sort="correct"  onclick="sortResults('correct')"  >Správně</th>
           <th data-sort="pct"      onclick="sortResults('pct')"      >Úspěšnost</th>
+          <th id="th-grade" data-sort="grade" onclick="sortResults('grade')" class="hidden">Známka</th>
           <th data-sort="score"    onclick="sortResults('score')"    >Body</th>
         </tr></thead>
         <tbody id="results-body"></tbody>
@@ -601,13 +662,14 @@ const S = {
   autoAdvanceDelay: 5,
 }
 const R = {
-  players:   [],
-  sortKey:   'score',
-  sortDir:   -1,
-  sessionId: null,
-  quizTitle: '',
-  totalQ:    0,
-  sessions:  [],
+  players:      [],
+  sortKey:      'score',
+  sortDir:      -1,
+  sessionId:    null,
+  quizTitle:    '',
+  totalQ:       0,
+  sessions:     [],
+  gradingScale: null,
 }
 
 let qType         = 'multiple_choice'
@@ -693,12 +755,34 @@ async function openEditor(quizId) {
   S.currentQuiz = quiz
   document.getElementById('edit-quiz-title').value = quiz.title
 
+  // Načti škálu hodnocení
+  const gs = quiz.grading_scale
+  const chk = document.getElementById('chk-grading')
+  if (gs?.enabled) {
+    chk.checked = true
+    const t = gs.thresholds || [90,75,50,25]
+    document.getElementById('g1').value = t[0] ?? 90
+    document.getElementById('g2').value = t[1] ?? 75
+    document.getElementById('g3').value = t[2] ?? 50
+    document.getElementById('g4').value = t[3] ?? 25
+    document.getElementById('g5-auto').textContent = t[3] ?? 25
+    document.getElementById('grading-thresholds').classList.remove('hidden')
+  } else {
+    chk.checked = false
+    document.getElementById('grading-thresholds').classList.add('hidden')
+  }
+
   const { data: qs } = await sb
     .from('questions').select('*, choices(*)')
     .eq('quiz_id', quizId).order('order_index')
   S.questions = qs || []
   renderQuestionList()
   showView('editor')
+}
+
+function toggleGradingUI() {
+  const on = document.getElementById('chk-grading').checked
+  document.getElementById('grading-thresholds').classList.toggle('hidden', !on)
 }
 
 function renderQuestionList() {
@@ -802,9 +886,20 @@ async function deleteQuestion(id) {
 
 async function saveAndGoBack() {
   const title = document.getElementById('edit-quiz-title').value.trim()
-  if (title && title !== S.currentQuiz.title) {
-    await sb.from('quizzes').update({ title }).eq('id', S.currentQuiz.id)
-  }
+  const gradingEnabled = document.getElementById('chk-grading').checked
+  const grading_scale = gradingEnabled ? {
+    enabled: true,
+    thresholds: [
+      parseInt(document.getElementById('g1').value) || 90,
+      parseInt(document.getElementById('g2').value) || 75,
+      parseInt(document.getElementById('g3').value) || 50,
+      parseInt(document.getElementById('g4').value) || 25,
+    ]
+  } : { enabled: false, thresholds: [90,75,50,25] }
+
+  const updates = { grading_scale }
+  if (title && title !== S.currentQuiz.title) updates.title = title
+  await sb.from('quizzes').update(updates).eq('id', S.currentQuiz.id)
   await goToDashboard()
 }
 
@@ -1509,11 +1604,22 @@ async function loadResults(sessionId, quizTitle, totalQ, createdAt) {
   R.quizTitle = quizTitle
   R.totalQ    = totalQ || 0
 
-  const [{ data: players }, { data: responses }, { data: feedbacks }] = await Promise.all([
+  // Načti hráče, odpovědi, feedback a grading_scale kvízu najednou
+  const [{ data: players }, { data: responses }, { data: feedbacks }, sessionRow] = await Promise.all([
     sb.from('players').select('id, nickname, score, avatar').eq('session_id', sessionId),
     sb.from('responses').select('player_id, is_correct').eq('session_id', sessionId),
-    sb.from('feedback').select('difficulty, self_rating').eq('session_id', sessionId)
+    sb.from('feedback').select('difficulty, self_rating').eq('session_id', sessionId),
+    sb.from('sessions').select('quiz_id').eq('id', sessionId).single()
   ])
+
+  // Grading scale – načti z kvízu
+  R.gradingScale = null
+  if (sessionRow.data?.quiz_id) {
+    const { data: qz } = await sb.from('quizzes').select('grading_scale').eq('id', sessionRow.data.quiz_id).single()
+    if (qz?.grading_scale?.enabled) R.gradingScale = qz.grading_scale
+  }
+  const thGrade = document.getElementById('th-grade')
+  thGrade.classList.toggle('hidden', !R.gradingScale)
 
   const map = {}
   for (const r of responses || []) {
@@ -1525,10 +1631,11 @@ async function loadResults(sessionId, quizTitle, totalQ, createdAt) {
   R.players = (players || []).map(p => {
     const s = map[p.id] || { total: 0, correct: 0 }
     const denom = R.totalQ || s.total
+    const pct = denom > 0 ? Math.round(s.correct / denom * 100) : 0
     return {
       id: p.id, nickname: p.nickname, score: p.score, avatar: p.avatar || '🎮',
-      correct: s.correct, total: denom,
-      pct: denom > 0 ? Math.round(s.correct / denom * 100) : 0
+      correct: s.correct, total: denom, pct,
+      grade: calcGrade(pct, R.gradingScale)
     }
   })
 
@@ -1574,6 +1681,18 @@ function sortResults(key) {
   renderResultsTable()
 }
 
+function calcGrade(pct, gs) {
+  if (!gs?.enabled) return null
+  const t = gs.thresholds || [90,75,50,25]
+  if (pct >= t[0]) return 1
+  if (pct >= t[1]) return 2
+  if (pct >= t[2]) return 3
+  if (pct >= t[3]) return 4
+  return 5
+}
+
+const GRADE_COLOR = { 1:'var(--green)', 2:'var(--blue)', 3:'var(--yellow)', 4:'#ff6b6b', 5:'var(--muted)' }
+
 function renderResultsTable() {
   const body  = document.getElementById('results-body')
   const empty = document.getElementById('results-empty')
@@ -1584,6 +1703,7 @@ function renderResultsTable() {
 
   const ranked = [...R.players].sort((a, b) => b.score - a.score)
   const rankOf  = {}; ranked.forEach((p, i) => rankOf[p.id] = i + 1)
+  const showGrade = !!R.gradingScale
 
   body.innerHTML = R.players.map(p => `
     <tr>
@@ -1594,6 +1714,7 @@ function renderResultsTable() {
         <span>${p.pct} %</span>
         <div class="pct-bar"><div class="pct-fill" style="width:${p.pct}%"></div></div>
       </td>
+      ${showGrade ? `<td style="font-weight:900; font-size:1.1rem; color:${GRADE_COLOR[p.grade]||'var(--muted)'}">${p.grade}</td>` : ''}
       <td style="color:var(--accent);font-weight:900">${p.score.toLocaleString('cs-CZ')}</td>
     </tr>`).join('')
 }
@@ -1601,8 +1722,18 @@ function renderResultsTable() {
 function exportResultsCsv() {
   const ranked = [...R.players].sort((a, b) => b.score - a.score)
   const rankOf  = {}; ranked.forEach((p, i) => rankOf[p.id] = i + 1)
-  const rows = [['Pořadí','Jméno','Správně','Celkem','Úspěšnost (%)','Body'],
-    ...R.players.map(p => [rankOf[p.id], p.nickname, p.correct, p.total, p.pct, p.score])]
+  const hasGrade = !!R.gradingScale
+  const header = ['Pořadí','Jméno','Správně','Celkem','Úspěšnost (%)']
+  if (hasGrade) header.push('Známka')
+  header.push('Body')
+  const rows = [header,
+    ...R.players.map(p => {
+      const r = [rankOf[p.id], p.nickname, p.correct, p.total, p.pct]
+      if (hasGrade) r.push(p.grade)
+      r.push(p.score)
+      return r
+    })
+  ]
   const csv  = rows.map(r => r.join(';')).join('\r\n')
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
   Object.assign(document.createElement('a'), {
@@ -1658,15 +1789,18 @@ function exportResultsPdf() {
   // Tabulka
   const ranked = [...R.players].sort((a,b) => b.score - a.score)
   const rankOf = {}; ranked.forEach((p,i) => rankOf[p.id] = i+1)
-  const rows = R.players.map(p => [
-    rankOf[p.id],
-    (p.avatar || '') + ' ' + p.nickname,
-    `${p.correct} / ${p.total}`,
-    p.pct + ' %',
-    p.score.toLocaleString('cs-CZ')
-  ])
+  const hasGrade = !!R.gradingScale
+  const rows = R.players.map(p => {
+    const r = [rankOf[p.id], (p.avatar||'') + ' ' + p.nickname, `${p.correct} / ${p.total}`, p.pct + ' %']
+    if (hasGrade) r.push(String(p.grade ?? ''))
+    r.push(p.score.toLocaleString('cs-CZ'))
+    return r
+  })
+  const head = ['#','Jméno','Správně','Úspěšnost']
+  if (hasGrade) head.push('Známka')
+  head.push('Body')
   doc.autoTable({
-    head: [['#','Jméno','Správně','Úspěšnost','Body']],
+    head: [head],
     body: rows,
     startY: 34,
     styles: { font: 'helvetica', fontSize: 10 },

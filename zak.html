@@ -353,6 +353,11 @@
     <div class="fin-score" id="fin-score"></div>
     <div class="fin-sub">bodů celkem</div>
     <div class="fin-rank" id="fin-rank"></div>
+    <div id="fin-grade" class="hidden" style="margin-top:1.25rem; text-align:center;">
+      <div style="font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:.35rem;">Známka</div>
+      <div id="fin-grade-val" style="font-size:4rem; font-weight:900; line-height:1;"></div>
+      <div id="fin-grade-lbl" style="font-size:.9rem; color:var(--muted); margin-top:.25rem;"></div>
+    </div>
   </div>
 </div>
 
@@ -407,12 +412,35 @@ async function submitFeedback() {
   showActualFinished()
 }
 async function showActualFinished() {
-  const { data: players } = await sb.from('players')
-    .select('id, score').eq('session_id', session.id)
-    .order('score', { ascending: false })
+  const [{ data: players }, { data: quiz }] = await Promise.all([
+    sb.from('players').select('id, score').eq('session_id', session.id).order('score', { ascending: false }),
+    sb.from('quizzes').select('grading_scale').eq('id', session.quiz_id).single()
+  ])
   const rank = (players||[]).findIndex(p => p.id === player.id) + 1
   document.getElementById('fin-score').textContent = player.score.toLocaleString('cs-CZ')
   document.getElementById('fin-rank').textContent  = `${rank}. místo z ${players?.length || 0} hráčů`
+
+  // Zobraz známku, pokud je hodnocení zapnuté
+  const gs = quiz?.grading_scale
+  const gradeEl = document.getElementById('fin-grade')
+  if (gs?.enabled) {
+    const total = session.total_questions || 1
+    const { data: myResponses } = await sb.from('responses')
+      .select('is_correct').eq('session_id', session.id).eq('player_id', player.id)
+    const correct = (myResponses||[]).filter(r => r.is_correct).length
+    const pct = Math.round(correct / total * 100)
+    const t = gs.thresholds || [90,75,50,25]
+    const grade = pct >= t[0] ? 1 : pct >= t[1] ? 2 : pct >= t[2] ? 3 : pct >= t[3] ? 4 : 5
+    const labels = {1:'Výborný',2:'Chvalitebný',3:'Dobrý',4:'Dostatečný',5:'Nedostatečný'}
+    const colors = {1:'var(--green)',2:'var(--blue)',3:'var(--yellow)',4:'#ff6b6b',5:'var(--muted)'}
+    document.getElementById('fin-grade-val').textContent = grade
+    document.getElementById('fin-grade-val').style.color = colors[grade]
+    document.getElementById('fin-grade-lbl').textContent = `${labels[grade]} · ${pct} %`
+    gradeEl.classList.remove('hidden')
+  } else {
+    gradeEl.classList.add('hidden')
+  }
+
   showView('finished')
 }
 
