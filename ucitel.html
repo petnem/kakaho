@@ -7,6 +7,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0/dist/umd/supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="config.js"></script>
   <style>
     :root {
@@ -270,6 +272,23 @@
     .feedback-stat-val { font-size: 1.8rem; font-weight: 900; color: var(--accent); }
     .feedback-stat-lbl { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
 
+    /* ── Auto-advance toggle ── */
+    .auto-advance-row { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;
+                        background:var(--card2); border-radius:10px; padding:.65rem 1rem;
+                        margin-bottom:.75rem; font-size:.9rem; }
+    .toggle-sw { position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; }
+    .toggle-sw input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:var(--card); border-radius:22px; cursor:pointer; transition:.2s; }
+    .toggle-slider::before { content:''; position:absolute; width:16px; height:16px; left:3px; bottom:3px;
+                              background:white; border-radius:50%; transition:.2s; }
+    input:checked + .toggle-slider { background:var(--accent); }
+    input:checked + .toggle-slider::before { transform:translateX(18px); }
+    .adv-delay-wrap { display:flex; align-items:center; gap:.4rem; font-size:.88rem; color:var(--muted); }
+    .adv-delay-wrap input { width:46px; background:var(--bg); border:1px solid #2a2a4a; border-radius:6px;
+                            padding:.25rem .4rem; color:var(--text); font-family:'Nunito',sans-serif;
+                            font-size:.88rem; text-align:center; }
+    #auto-adv-countdown { font-size:.85rem; color:var(--muted); margin-top:.5rem; text-align:center; }
+
     /* ── True/False editor option ── */
     .tf-editor-option {
       display: flex; align-items: center; gap: .4rem;
@@ -390,7 +409,19 @@
         <div class="player-count"><span id="player-count">0</span> žáků</div>
       </div>
       <div class="players-grid" id="players-grid"></div>
-      <button class="btn btn-success btn-block" style="margin-top:1.5rem; font-size:1.1rem; padding:1rem;" onclick="startQuiz()">
+      <div class="auto-advance-row" style="margin-top:1.25rem;">
+        <label class="toggle-sw" title="Automatický přechod po žebříčku">
+          <input type="checkbox" id="chk-auto-adv" onchange="S.autoAdvance=this.checked">
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-weight:700;">Automatický přechod</span>
+        <div class="adv-delay-wrap">
+          po&nbsp;<input type="number" id="inp-adv-delay" value="5" min="2" max="60"
+                         oninput="S.autoAdvanceDelay=+this.value||5">&nbsp;s
+        </div>
+        <span style="color:var(--muted); font-size:.8rem;">(nebo mezerník / →)</span>
+      </div>
+      <button class="btn btn-success btn-block" style="font-size:1.1rem; padding:1rem;" onclick="startQuiz()">
         ▶ Spustit kvíz
       </button>
     </div>
@@ -425,11 +456,15 @@
     <div id="sess-leaderboard" class="hidden">
       <div class="section-title" style="margin-bottom:1rem; text-align:center;">🏆 Žebříček</div>
       <div id="lb-list" class="leaderboard"></div>
+      <div id="auto-adv-countdown" class="hidden"></div>
       <button id="btn-next" class="btn btn-primary btn-block" style="margin-top:1.25rem; font-size:1.05rem; padding:.9rem;" onclick="nextQuestion()">
         Další otázka →
       </button>
       <button id="btn-finish" class="btn btn-success btn-block hidden" onclick="finishQuiz()">
         🎉 Ukončit kvíz
+      </button>
+      <button id="btn-adv-pause" class="btn btn-outline btn-block hidden" style="margin-top:.4rem; font-size:.9rem;" onclick="pauseAutoAdvance()">
+        ⏸ Pozastavit auto-přechod
       </button>
     </div>
 
@@ -441,7 +476,10 @@
   <div class="header">
     <button class="back-btn" onclick="goToDashboard()">← Zpět</button>
     <div class="logo">Kvíz<span>App</span></div>
-    <button class="btn btn-outline btn-sm" onclick="exportResultsCsv()">⬇ CSV</button>
+    <div style="display:flex;gap:.4rem;">
+      <button class="btn btn-outline btn-sm" onclick="exportResultsPdf()">⬇ PDF</button>
+      <button class="btn btn-outline btn-sm" onclick="exportResultsCsv()">⬇ CSV</button>
+    </div>
   </div>
   <div class="content">
     <div class="section-title" id="results-title" style="margin-bottom:.2rem;"></div>
@@ -547,17 +585,20 @@ const { createClient } = supabase
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const S = {
-  quizzes:        [],
-  currentQuiz:    null,
-  questions:      [],
-  session:        null,
-  players:        [],
-  currentQIdx:    -1,
-  playersSub:     null,
-  responsesSub:   null,
-  timerInterval:  null,
-  currentChoices: [],
-  correctRevealed:false,
+  quizzes:          [],
+  currentQuiz:      null,
+  questions:        [],
+  session:          null,
+  players:          [],
+  currentQIdx:      -1,
+  playersSub:       null,
+  responsesSub:     null,
+  timerInterval:    null,
+  autoAdvTimer:     null,
+  currentChoices:   [],
+  correctRevealed:  false,
+  autoAdvance:      false,
+  autoAdvanceDelay: 5,
 }
 const R = {
   players:   [],
@@ -932,6 +973,8 @@ function startTimer(seconds) {
     const pct = Math.max(0, (rem / seconds) * 100)
     fill.style.width = pct + '%'
     fill.style.background = pct < 30 ? 'var(--red)' : pct < 60 ? 'var(--yellow)' : 'var(--green)'
+    if (rem > 0 && rem <= 5) teacherTick()
+    if (rem === 0) teacherBeep(440)
     if (rem <= 0) { clearInterval(S.timerInterval); revealCorrectAnswers() }
   }, 1000)
 }
@@ -995,18 +1038,19 @@ function revealCorrectAnswers() {
 
 async function teacherShowLeaderboard() {
   clearInterval(S.timerInterval)
+  clearInterval(S.autoAdvTimer)
   revealCorrectAnswers()
   await sb.from('sessions').update({ status: 'leaderboard' }).eq('id', S.session.id)
 
   const { data: players } = await sb.from('players')
-    .select('nickname, score').eq('session_id', S.session.id)
+    .select('nickname, score, avatar').eq('session_id', S.session.id)
     .order('score', { ascending: false }).limit(10)
 
   const medals = ['🥇','🥈','🥉']
   document.getElementById('lb-list').innerHTML = (players||[]).map((p,i) => `
     <div class="lb-item">
       <div class="lb-rank">${medals[i] || (i+1)}</div>
-      <div class="lb-name">${esc(p.nickname)}</div>
+      <div class="lb-name">${p.avatar || '🎮'} ${esc(p.nickname)}</div>
       <div class="lb-score">${p.score.toLocaleString('cs-CZ')}</div>
     </div>`).join('')
 
@@ -1016,6 +1060,30 @@ async function teacherShowLeaderboard() {
 
   document.getElementById('sess-question').classList.add('hidden')
   document.getElementById('sess-leaderboard').classList.remove('hidden')
+
+  if (S.autoAdvance) startAutoAdvance(isLast)
+}
+
+function startAutoAdvance(isLast) {
+  let rem = S.autoAdvanceDelay || 5
+  const cntEl  = document.getElementById('auto-adv-countdown')
+  const pauseEl = document.getElementById('btn-adv-pause')
+  cntEl.classList.remove('hidden')
+  pauseEl.classList.remove('hidden')
+  const action = isLast ? () => finishQuiz() : () => nextQuestion()
+  function tick() {
+    cntEl.textContent = `Přechod za ${rem}s…`
+    if (rem <= 0) { clearInterval(S.autoAdvTimer); cntEl.classList.add('hidden'); pauseEl.classList.add('hidden'); action() }
+    else rem--
+  }
+  tick()
+  S.autoAdvTimer = setInterval(tick, 1000)
+}
+
+function pauseAutoAdvance() {
+  clearInterval(S.autoAdvTimer)
+  document.getElementById('auto-adv-countdown').classList.add('hidden')
+  document.getElementById('btn-adv-pause').classList.add('hidden')
 }
 
 async function finishQuiz() {
@@ -1042,6 +1110,7 @@ async function confirmEndSession() {
 
 function cleanupSession() {
   clearInterval(S.timerInterval)
+  clearInterval(S.autoAdvTimer)
   if (S.playersSub)   { S.playersSub.unsubscribe();   S.playersSub   = null }
   if (S.responsesSub) { S.responsesSub.unsubscribe();  S.responsesSub = null }
   S.session = null; S.players = []; S.currentQIdx = -1
@@ -1053,6 +1122,33 @@ function cleanupSession() {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
+// ═══════════════════════════════════════════════
+//  ZVUKY UČITEL (odpočet posledních 5 s)
+// ═══════════════════════════════════════════════
+let _tac = null
+function teacherTick() {
+  try {
+    if (!_tac) _tac = new (window.AudioContext || window.webkitAudioContext)()
+    const o = _tac.createOscillator(), g = _tac.createGain()
+    o.connect(g); g.connect(_tac.destination)
+    o.frequency.value = 880; o.type = 'sine'
+    g.gain.setValueAtTime(.06, _tac.currentTime)
+    g.gain.exponentialRampToValueAtTime(.001, _tac.currentTime + .08)
+    o.start(_tac.currentTime); o.stop(_tac.currentTime + .08)
+  } catch(e) {}
+}
+function teacherBeep(freq) {
+  try {
+    if (!_tac) _tac = new (window.AudioContext || window.webkitAudioContext)()
+    const o = _tac.createOscillator(), g = _tac.createGain()
+    o.connect(g); g.connect(_tac.destination)
+    o.frequency.value = freq; o.type = 'sine'
+    g.gain.setValueAtTime(.08, _tac.currentTime)
+    g.gain.exponentialRampToValueAtTime(.001, _tac.currentTime + .15)
+    o.start(_tac.currentTime); o.stop(_tac.currentTime + .15)
+  } catch(e) {}
+}
+
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('cs-CZ', { day:'numeric', month:'long', year:'numeric' })
 }
@@ -1512,6 +1608,73 @@ function exportResultsCsv() {
   Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(blob), download: R.quizTitle + '_výsledky.csv'
   }).click()
+}
+
+// ═══════════════════════════════════════════════
+//  KLÁVESNICE / PREZENTÉR
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (!S.session) return
+  const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
+  if (inInput) return
+  const lbVisible = !document.getElementById('sess-leaderboard').classList.contains('hidden')
+  const qVisible  = !document.getElementById('sess-question').classList.contains('hidden')
+  // Space / ArrowRight / PageDown / Enter → další krok
+  if (['Space','ArrowRight','PageDown','Enter','F5'].includes(e.code)) {
+    e.preventDefault()
+    if (qVisible) { skipToNext(); return }
+    if (lbVisible) {
+      const isLast = S.currentQIdx >= S.questions.length - 1
+      if (isLast) finishQuiz(); else nextQuestion()
+    }
+  }
+  // ArrowLeft / PageUp → předchozí otázka
+  if (['ArrowLeft','PageUp'].includes(e.code)) {
+    e.preventDefault()
+    if (S.currentQIdx > 0) prevQuestion()
+  }
+  // P → pauza auto-přechodu
+  if (e.code === 'KeyP') pauseAutoAdvance()
+})
+
+// ═══════════════════════════════════════════════
+//  PDF EXPORT
+// ═══════════════════════════════════════════════
+function exportResultsPdf() {
+  if (!R.players.length) { showToast('Žádné záznamy'); return }
+  const { jsPDF } = window.jspdf
+  if (!jsPDF) { showToast('PDF knihovna se načítá, zkus znovu'); return }
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+  // Hlavička
+  doc.setFontSize(18); doc.setFont('helvetica','bold')
+  doc.text(R.quizTitle + ' – Výsledky', 14, 20)
+  doc.setFontSize(10); doc.setFont('helvetica','normal')
+  doc.setTextColor(120)
+  const meta = document.getElementById('results-meta').textContent
+  doc.text(meta, 14, 28)
+  doc.setTextColor(0)
+
+  // Tabulka
+  const ranked = [...R.players].sort((a,b) => b.score - a.score)
+  const rankOf = {}; ranked.forEach((p,i) => rankOf[p.id] = i+1)
+  const rows = R.players.map(p => [
+    rankOf[p.id],
+    (p.avatar || '') + ' ' + p.nickname,
+    `${p.correct} / ${p.total}`,
+    p.pct + ' %',
+    p.score.toLocaleString('cs-CZ')
+  ])
+  doc.autoTable({
+    head: [['#','Jméno','Správně','Úspěšnost','Body']],
+    body: rows,
+    startY: 34,
+    styles: { font: 'helvetica', fontSize: 10 },
+    headStyles: { fillColor: [233,69,96], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245,245,250] }
+  })
+
+  doc.save(R.quizTitle + '_výsledky.pdf')
 }
 
 // ═══════════════════════════════════════════════

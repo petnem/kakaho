@@ -253,6 +253,18 @@
         <button class="avatar-btn" onclick="pickAvatar(this,'💎')">💎</button>
         <button class="avatar-btn" onclick="pickAvatar(this,'🌙')">🌙</button>
         <button class="avatar-btn" onclick="pickAvatar(this,'⭐')">⭐</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦅')">🦅</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦈')">🦈</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐬')">🐬</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦖')">🦖</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐲')">🐲</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦝')">🦝</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🐧')">🐧</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🦩')">🦩</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🎯')">🎯</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🚀')">🚀</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'👻')">👻</button>
+        <button class="avatar-btn" onclick="pickAvatar(this,'🤡')">🤡</button>
       </div>
     </div>
     <div id="join-error" class="error-msg"></div>
@@ -371,43 +383,6 @@ function pickAvatar(btn, emoji) {
   selectedAvatar = emoji
 }
 
-// ═══════════════════════════════════════════════
-//  ZVUKY (Web Audio API)
-// ═══════════════════════════════════════════════
-let _ac = null
-function getAC() {
-  if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)()
-  return _ac
-}
-function playSound(type) {
-  try {
-    const ac = getAC()
-    const g  = ac.createGain(); g.connect(ac.destination)
-    const o  = ac.createOscillator(); o.connect(g)
-    const t  = ac.currentTime
-    if (type === 'correct') {
-      o.type = 'sine'
-      o.frequency.setValueAtTime(523, t); o.frequency.setValueAtTime(659, t+.1); o.frequency.setValueAtTime(784, t+.2)
-      g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t+.55)
-      o.start(t); o.stop(t+.55)
-    } else if (type === 'wrong') {
-      o.type = 'sawtooth'
-      o.frequency.setValueAtTime(220, t); o.frequency.setValueAtTime(160, t+.18)
-      g.gain.setValueAtTime(.09, t); g.gain.exponentialRampToValueAtTime(.001, t+.35)
-      o.start(t); o.stop(t+.35)
-    } else if (type === 'tick') {
-      o.type = 'sine'; o.frequency.value = 900
-      g.gain.setValueAtTime(.04, t); g.gain.exponentialRampToValueAtTime(.001, t+.06)
-      o.start(t); o.stop(t+.06)
-    } else if (type === 'finish') {
-      o.type = 'sine'
-      o.frequency.setValueAtTime(523, t); o.frequency.setValueAtTime(659, t+.1)
-      o.frequency.setValueAtTime(784, t+.2); o.frequency.setValueAtTime(1047, t+.35)
-      g.gain.setValueAtTime(.13, t); g.gain.exponentialRampToValueAtTime(.001, t+.7)
-      o.start(t); o.stop(t+.7)
-    }
-  } catch(e) {}
-}
 
 // ═══════════════════════════════════════════════
 //  ZPĚTNÁ VAZBA
@@ -631,7 +606,6 @@ function startCountdown(limit, startedAt) {
     const remaining = Math.max(0, limit - elapsed)
     el.textContent  = Math.ceil(remaining) + 's'
     el.style.color  = remaining < 5 ? 'var(--red)' : remaining < 10 ? 'var(--yellow)' : 'var(--accent)'
-    if (remaining <= 5 && remaining > 0 && Math.ceil(remaining) !== Math.ceil(remaining + 0.5)) playSound('tick')
     if (remaining <= 0) {
       clearInterval(timerInt)
       if (!answered) showResult(false, null, 0)
@@ -804,7 +778,6 @@ function otEnd(e) {
 }
 
 function showResult(isCorrect, timeTaken, pts) {
-  playSound(isCorrect ? 'correct' : 'wrong')
   if (isCorrect) {
     document.getElementById('res-icon').textContent  = '✅'
     document.getElementById('res-label').textContent = 'Správně!'
@@ -890,7 +863,6 @@ async function showFinished() {
   sessionStorage.removeItem('kv_player')
   if (sessionSub) { sessionSub.unsubscribe(); sessionSub = null }
   clearInterval(timerInt)
-  playSound('finish')
   // Reset hvězdiček zpětné vazby
   feedbackDiff = 0; feedbackSelf = 0
   document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('on'))
