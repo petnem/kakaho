@@ -1,0 +1,119 @@
+[
+  {
+    "type": "mc",
+    "text": "Kdo je spoluzakladatelem sociální sítě Facebook?",
+    "choices": ["Elon Musk", "Mark Zuckerberg", "Jeff Bezos", "Bill Gates"],
+    "correct": 1,
+    "time": 20,
+    "points": 1000
+  },
+  {
+    "type": "mc",
+    "text": "Který plyn je hlavním přispěvatelem ke skleníkovému efektu způsobenému lidskou činností?",
+    "choices": ["Kyslík (O₂)", "Dusík (N₂)", "Oxid uhličitý (CO₂)", "Argon (Ar)"],
+    "correct": 2,
+    "time": 20,
+    "points": 1000
+  },
+  {
+    "type": "mc",
+    "text": "Která společnost stojí za jazykovým modelem ChatGPT?",
+    "choices": ["Google", "Meta", "Microsoft", "OpenAI"],
+    "correct": 3,
+    "time": 20,
+    "points": 1000
+  },
+  {
+    "type": "tf",
+    "text": "Aplikace TikTok pochází z Číny (vytvořila ji čínská firma ByteDance).",
+    "choices": ["Pravda", "Nepravda"],
+    "correct": 0,
+    "time": 15,
+    "points": 500
+  },
+  {
+    "type": "tf",
+    "text": "Bitcoin existuje jako fyzická mince, kterou si lze vložit do peněženky.",
+    "choices": ["Pravda", "Nepravda"],
+    "correct": 1,
+    "time": 15,
+    "points": 500
+  },
+  {
+    "type": "tf",
+    "text": "Pandemie COVID-19 byla vyhlášena Světovou zdravotnickou organizací (WHO) v roce 2020.",
+    "choices": ["Pravda", "Nepravda"],
+    "correct": 0,
+    "time": 15,
+    "points": 500
+  },
+  {
+    "type": "text",
+    "text": "Jak se jmenuje spisovatel série knih o Harrym Potterovi? (Příjmení stačí)",
+    "correct": "Rowling",
+    "time": 25,
+    "points": 1000
+  },
+  {
+    "type": "text",
+    "text": "Co znamená zkratka URL v kontextu internetu? (anglicky)",
+    "correct": "Uniform Resource Locator",
+    "time": 30,
+    "points": 1000
+  },
+  {
+    "type": "text",
+    "text": "Jak se jmenuje streamovací platforma vlastněná společností Amazon, která konkuruje Netflixu?",
+    "correct": "Amazon Prime Video",
+    "time": 20,
+    "points": 1000
+  },
+  {
+    "type": "num",
+    "text": "Kolik planet se nachází ve Sluneční soustavě? (podle definice IAU z roku 2006)",
+    "correct": 8,
+    "tolerance": 0,
+    "time": 15,
+    "points": 500
+  },
+  {
+    "type": "num",
+    "text": "V kterém roce Apple představil první iPhone?",
+    "correct": 2007,
+    "tolerance": 0,
+    "time": 20,
+    "points": 1000
+  },
+  {
+    "type": "num",
+    "text": "V kterém roce bylo veřejně spuštěno ChatGPT (verze GPT-3.5)?",
+    "correct": 2022,
+    "tolerance": 0,
+    "time": 20,
+    "points": 1000
+  },
+  {
+    "type": "order",
+    "text": "Seřaď tyto sociální sítě od nejstarší po nejmladší (podle roku vzniku).",
+    "choices": ["Facebook (2004)", "YouTube (2005)", "Twitter/X (2006)", "Instagram (2010)"],
+    "correct": 0,
+    "time": 30,
+    "points": 1000
+  },
+  {
+    "type": "order",
+    "text": "Seřaď tyto planety podle vzdálenosti od Slunce (od nejbližší).",
+    "choices": ["Merkur", "Venuše", "Země", "Mars"],
+    "correct": 0,
+    "time": 25,
+    "points": 1000
+  },
+  {
+    "type": "order",
+    "text": "Seřaď tyto technologické milníky od nejstaršího po nejnovější.",
+    "choices": ["Vznik internetu WWW (1991)", "Google spuštěn (1998)", "Wikipedia spuštěna (2001)", "Spotify spuštěno (2008)"],
+    "correct": 0,
+    "time": 30,
+    "points": 1000
+  }
+]
