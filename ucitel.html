@@ -144,8 +144,8 @@
 
     /* ── Session – Live question ── */
     .live-question { background: var(--card); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
-    .live-q-num   { font-size: .78rem; color: var(--muted); margin-bottom: .4rem; }
-    .live-q-text  { font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem; }
+    .live-q-num   { font-size: .82rem; color: var(--muted); margin-bottom: .5rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+    .live-q-text  { font-size: 1.45rem; font-weight: 800; margin-bottom: 1rem; line-height: 1.35; }
     .timer-bar    { height: 8px; background: var(--card2); border-radius: 4px; overflow: hidden; margin: .75rem 0; }
     .timer-fill   { height: 100%; background: var(--green); border-radius: 4px; transition: width 1s linear, background .5s; }
     .answer-row   { display: flex; align-items: center; justify-content: space-between; }
@@ -212,17 +212,29 @@
     .img-row img { max-height: 80px; border-radius: 6px; object-fit: contain; }
 
     /* ── Live session choices ── */
-    .live-choices { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .75rem; }
+    .live-choices { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin-top: .85rem; }
     .live-choice {
-      border-radius: 8px; padding: .55rem .8rem;
-      display: flex; align-items: center; gap: .5rem;
-      font-weight: 700; font-size: .92rem;
+      border-radius: 12px; padding: .85rem 1rem;
+      display: flex; align-items: center; gap: .75rem;
+      font-weight: 700; font-size: 1.05rem; line-height: 1.35;
+      border: 2px solid transparent; transition: box-shadow .25s, opacity .3s, border-color .25s;
     }
-    .live-choice.correct-choice { box-shadow: 0 0 0 2px var(--green); }
-    .lcA { background: rgba(231,76,60,.25);  color: #e74c3c; }
-    .lcB { background: rgba(52,152,219,.25); color: #3498db; }
-    .lcC { background: rgba(230,126,34,.25); color: #e67e22; }
-    .lcD { background: rgba(46,204,113,.25); color: var(--green); }
+    .lc-label {
+      width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; font-weight: 900;
+      background: rgba(255,255,255,.15);
+    }
+    .lc-text { flex: 1; font-size: 1rem; }
+    .live-choice.correct-choice {
+      border-color: var(--green) !important;
+      box-shadow: 0 0 0 2px var(--green), 0 4px 16px rgba(46,204,113,.35);
+    }
+    .live-choice.wrong-choice { opacity: .35; }
+    .lcA { background: rgba(231,76,60,.4);  color: #ff8a7a; border-color: rgba(231,76,60,.3); }
+    .lcB { background: rgba(52,152,219,.4); color: #85c1e9; border-color: rgba(52,152,219,.3); }
+    .lcC { background: rgba(230,126,34,.4); color: #ffc27d; border-color: rgba(230,126,34,.3); }
+    .lcD { background: rgba(46,204,113,.4); color: #7dde9d; border-color: rgba(46,204,113,.3); }
     .live-q-image { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin: .5rem 0; display: none; }
     .live-q-image.visible { display: block; }
 
@@ -1094,33 +1106,39 @@ function renderLiveChoices(reveal) {
   if (qType === 'text' || qType === 'numeric') {
     const correct = S.currentChoices.find(c => c.is_correct)
     el.innerHTML = reveal
-      ? `<div class="live-choice lcD correct-choice" style="grid-column:1/-1;">
-           <span>✓</span><span>${esc(correct?.text || '')}</span></div>`
-      : `<div class="live-choice lcB" style="grid-column:1/-1; justify-content:center;">
-           <span>Žáci zadávají odpověď…</span></div>`
+      ? `<div class="live-choice lcD correct-choice" style="grid-column:1/-1; font-size:1.15rem;">
+           <div class="lc-label">✓</div>
+           <div class="lc-text">${esc(correct?.text || '')}</div>
+         </div>`
+      : `<div class="live-choice lcB" style="grid-column:1/-1; justify-content:center; font-size:1rem; opacity:.7;">
+           <div class="lc-text" style="text-align:center;">Žáci zadávají odpověď…</div>
+         </div>`
     return
   }
 
   if (qType === 'ordering') {
-    const items = reveal
-      ? S.currentChoices  // correct order
-      : [...S.currentChoices].sort(() => Math.random() - 0.5)
+    const items = reveal ? S.currentChoices : [...S.currentChoices].sort(() => Math.random() - 0.5)
     el.innerHTML = items.map((c, i) => `
-      <div class="live-choice lcB" style="grid-column:1/-1;">
-        <span>${reveal ? i + 1 + '.' : '?'}</span>
-        <span>${esc(c.text)}${reveal ? ' ✓' : ''}</span>
+      <div class="live-choice lcB" style="grid-column:1/-1; ${reveal ? 'border-color:var(--green);' : ''}">
+        <div class="lc-label" style="${reveal ? 'background:rgba(46,204,113,.3);' : ''}">${reveal ? i + 1 : '?'}</div>
+        <div class="lc-text">${esc(c.text)}</div>
+        ${reveal ? '<span style="color:var(--green); font-size:1.1rem;">✓</span>' : ''}
       </div>`).join('')
     return
   }
 
   // multiple_choice / true_false
-  const lcls  = ['lcA','lcB','lcC','lcD']
-  const icons = ['🔴','🔵','🟠','🟢']
-  el.innerHTML = S.currentChoices.map((c, i) => `
-    <div class="live-choice ${lcls[i]} ${reveal && c.is_correct ? 'correct-choice' : ''}">
-      <span>${icons[i]}</span>
-      <span>${esc(c.text)}${reveal && c.is_correct ? ' ✓' : ''}</span>
-    </div>`).join('')
+  const lcls   = ['lcA','lcB','lcC','lcD']
+  const labels = ['A','B','C','D']
+  el.innerHTML = S.currentChoices.map((c, i) => {
+    const isCorrect = reveal && c.is_correct
+    const isWrong   = reveal && !c.is_correct
+    return `
+    <div class="live-choice ${lcls[i]} ${isCorrect ? 'correct-choice' : ''} ${isWrong ? 'wrong-choice' : ''}">
+      <div class="lc-label">${isCorrect ? '✓' : labels[i]}</div>
+      <div class="lc-text">${esc(c.text)}</div>
+    </div>`
+  }).join('')
 }
 
 function revealCorrectAnswers() {
