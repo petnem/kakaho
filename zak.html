@@ -169,9 +169,11 @@
     .feedback-block { text-align: center; }
     .feedback-q     { font-size: 1rem; font-weight: 700; margin-bottom: .5rem; }
     .star-row       { display: flex; gap: .3rem; justify-content: center; }
-    .star-btn       { font-size: 2rem; background: none; border: none; cursor: pointer; line-height:1;
-                      opacity: .3; transition: opacity .1s, transform .1s; -webkit-tap-highlight-color:transparent; }
-    .star-btn.on    { opacity: 1; transform: scale(1.1); }
+    .star-btn       { font-size: 2.4rem; background: none; border: none; cursor: pointer; line-height:1;
+                      color: rgba(255,255,255,.25); transition: color .12s, transform .12s;
+                      -webkit-tap-highlight-color:transparent; }
+    .star-btn:active { transform: scale(.9); }
+    .star-btn.on    { color: #ffd700; transform: scale(1.15); filter: drop-shadow(0 0 6px rgba(255,215,0,.6)); }
     .feedback-hint  { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
     .skip-btn       { background: none; border: none; color: var(--muted); font-family: 'Nunito', sans-serif;
                       cursor: pointer; font-size: .9rem; -webkit-tap-highlight-color:transparent; }
