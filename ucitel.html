@@ -7,8 +7,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0/dist/umd/supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="config.js"></script>
   <style>
     :root {
@@ -1773,42 +1771,54 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════════════
 function exportResultsPdf() {
   if (!R.players.length) { showToast('Žádné záznamy'); return }
-  const { jsPDF } = window.jspdf
-  if (!jsPDF) { showToast('PDF knihovna se načítá, zkus znovu'); return }
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-  // Hlavička
-  doc.setFontSize(18); doc.setFont('helvetica','bold')
-  doc.text(R.quizTitle + ' – Výsledky', 14, 20)
-  doc.setFontSize(10); doc.setFont('helvetica','normal')
-  doc.setTextColor(120)
-  const meta = document.getElementById('results-meta').textContent
-  doc.text(meta, 14, 28)
-  doc.setTextColor(0)
-
-  // Tabulka
   const ranked = [...R.players].sort((a,b) => b.score - a.score)
   const rankOf = {}; ranked.forEach((p,i) => rankOf[p.id] = i+1)
   const hasGrade = !!R.gradingScale
-  const rows = R.players.map(p => {
-    const r = [rankOf[p.id], (p.avatar||'') + ' ' + p.nickname, `${p.correct} / ${p.total}`, p.pct + ' %']
-    if (hasGrade) r.push(String(p.grade ?? ''))
-    r.push(p.score.toLocaleString('cs-CZ'))
-    return r
-  })
-  const head = ['#','Jméno','Správně','Úspěšnost']
-  if (hasGrade) head.push('Známka')
-  head.push('Body')
-  doc.autoTable({
-    head: [head],
-    body: rows,
-    startY: 34,
-    styles: { font: 'helvetica', fontSize: 10 },
-    headStyles: { fillColor: [233,69,96], textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [245,245,250] }
-  })
+  const meta = document.getElementById('results-meta').textContent
 
-  doc.save(R.quizTitle + '_výsledky.pdf')
+  const gradeColors = {1:'#27ae60',2:'#2980b9',3:'#f39c12',4:'#e74c3c',5:'#95a5a6'}
+
+  const rows = [...R.players].sort((a,b) => rankOf[a.id] - rankOf[b.id]).map(p => `
+    <tr>
+      <td>${rankOf[p.id]}</td>
+      <td>${p.avatar || ''} ${esc(p.nickname)}</td>
+      <td>${p.correct} / ${p.total}</td>
+      <td>${p.pct} %</td>
+      ${hasGrade ? `<td style="color:${gradeColors[p.grade]||'#666'};font-weight:bold">${p.grade}</td>` : ''}
+      <td>${p.score.toLocaleString('cs-CZ')}</td>
+    </tr>`).join('')
+
+  const headCells = ['#','Jméno','Správně','Úspěšnost', ...(hasGrade?['Známka']:[]), 'Body']
+    .map(h => `<th>${h}</th>`).join('')
+
+  const html = `<!DOCTYPE html><html lang="cs"><head>
+    <meta charset="UTF-8">
+    <title>${esc(R.quizTitle)} – Výsledky</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Nunito', Arial, sans-serif; color: #222; padding: 24px 32px; }
+      h1 { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+      .meta { font-size: 12px; color: #777; margin-bottom: 18px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { background: #e94560; color: white; font-weight: 900; padding: 8px 10px; text-align: left; }
+      td { padding: 7px 10px; border-bottom: 1px solid #eee; }
+      tr:nth-child(even) td { background: #f9f9fc; }
+      @page { size: A4; margin: 15mm; }
+      @media print { body { padding: 0; } }
+    </style>
+  </head><body>
+    <h1>${esc(R.quizTitle)} – Výsledky</h1>
+    <div class="meta">${esc(meta)}</div>
+    <table><thead><tr>${headCells}</tr></thead><tbody>${rows}</tbody></table>
+  </body></html>`
+
+  const w = window.open('', '_blank', 'width=800,height=600')
+  w.document.write(html)
+  w.document.close()
+  w.focus()
+  setTimeout(() => { w.print() }, 500)
 }
 
 // ═══════════════════════════════════════════════
