@@ -212,29 +212,29 @@
     .img-row img { max-height: 80px; border-radius: 6px; object-fit: contain; }
 
     /* ── Live session choices ── */
-    .live-choices { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin-top: .85rem; }
+    .live-choices { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: .85rem; }
     .live-choice {
-      border-radius: 12px; padding: .85rem 1rem;
-      display: flex; align-items: center; gap: .75rem;
-      font-weight: 700; font-size: 1.05rem; line-height: 1.35;
+      border-radius: 14px; padding: 1rem 1.1rem;
+      display: flex; align-items: center; gap: .85rem;
+      font-weight: 800; font-size: 1.15rem; line-height: 1.35; color: #fff;
       border: 2px solid transparent; transition: box-shadow .25s, opacity .3s, border-color .25s;
     }
     .lc-label {
-      width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+      width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; font-weight: 900;
-      background: rgba(255,255,255,.15);
+      font-size: 1.05rem; font-weight: 900;
+      background: rgba(0,0,0,.25);
     }
-    .lc-text { flex: 1; font-size: 1rem; }
+    .lc-text { flex: 1; font-size: 1.1rem; }
     .live-choice.correct-choice {
       border-color: var(--green) !important;
-      box-shadow: 0 0 0 2px var(--green), 0 4px 16px rgba(46,204,113,.35);
+      box-shadow: 0 0 0 2px var(--green), 0 4px 16px rgba(46,204,113,.45);
     }
-    .live-choice.wrong-choice { opacity: .35; }
-    .lcA { background: rgba(231,76,60,.4);  color: #ff8a7a; border-color: rgba(231,76,60,.3); }
-    .lcB { background: rgba(52,152,219,.4); color: #85c1e9; border-color: rgba(52,152,219,.3); }
-    .lcC { background: rgba(230,126,34,.4); color: #ffc27d; border-color: rgba(230,126,34,.3); }
-    .lcD { background: rgba(46,204,113,.4); color: #7dde9d; border-color: rgba(46,204,113,.3); }
+    .live-choice.wrong-choice { opacity: .3; }
+    .lcA { background: linear-gradient(135deg,#e74c3c,#c0392b); }
+    .lcB { background: linear-gradient(135deg,#2980b9,#1a5276); }
+    .lcC { background: linear-gradient(135deg,#e67e22,#a04000); }
+    .lcD { background: linear-gradient(135deg,#27ae60,#1a7a42); }
     .live-q-image { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin: .5rem 0; display: none; }
     .live-q-image.visible { display: block; }
 
