@@ -705,7 +705,7 @@ async function goToDashboard() {
 // ═══════════════════════════════════════════════
 async function loadQuizzes() {
   const { data, error } = await sb
-    .from('quizzes').select('id, title, created_at')
+    .from('quizzes').select('id, title, created_at, grading_scale')
     .order('created_at', { ascending: false })
   if (error) { showToast('Chyba načtení'); return }
   S.quizzes = data || []

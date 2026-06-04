@@ -845,6 +845,7 @@ async function showLeaderboard() {
       <div class="lb-score">${p.score.toLocaleString('cs-CZ')}</div>
     </div>`).join('')
 
+  if (session?.status === 'finished') return
   showView('leaderboard')
 }
 
