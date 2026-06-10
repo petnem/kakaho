@@ -508,21 +508,34 @@ async function joinSession() {
   const pin  = document.getElementById('pin-input').value.trim()
   const nick = document.getElementById('nick-input').value.trim()
   const err  = document.getElementById('join-error')
+  const btn  = document.querySelector('#view-join .btn-primary')
   err.textContent = ''
 
-  if (!pin || pin.length !== 6)  { err.textContent = 'Zadej 6místný PIN.';       return }
-  if (!nick)                      { err.textContent = 'Zadej přezdívku.';          return }
+  if (!pin || pin.length !== 6)  { err.textContent = 'Zadej 6místný PIN.';          return }
+  if (!nick)                      { err.textContent = 'Zadej přezdívku.';             return }
   if (nick.length < 2)            { err.textContent = 'Přezdívka je příliš krátká.'; return }
+
+  btn.disabled = true; btn.textContent = '…'
 
   // Najdi relaci (waiting = čeká, active = právě probíhá – pozdní připojení)
   const { data: sess, error } = await sb.from('sessions')
     .select('*').eq('pin', pin).in('status', ['waiting', 'active']).single()
-  if (error || !sess) { err.textContent = 'Kvíz nenalezen nebo již skončil.'; return }
+  if (error || !sess) {
+    err.textContent = 'Kvíz nenalezen nebo již skončil.'
+    btn.disabled = false; btn.textContent = 'Připojit se →'
+    return
+  }
 
-  // Přidej hráče
+  // Upsert: pokud stejné jméno v relaci existuje (ztráta sessionStorage), vrátí stávajícího hráče
   const { data: p, error: pErr } = await sb.from('players')
-    .insert({ session_id: sess.id, nickname: nick, score: 0, avatar: selectedAvatar }).select().single()
-  if (pErr) { err.textContent = 'Chyba připojení – zkus to znovu.'; return }
+    .upsert({ session_id: sess.id, nickname: nick, score: 0, avatar: selectedAvatar },
+            { onConflict: 'session_id,nickname', ignoreDuplicates: false })
+    .select().single()
+  if (pErr || !p) {
+    err.textContent = 'Chyba připojení – zkus to znovu.'
+    btn.disabled = false; btn.textContent = 'Připojit se →'
+    return
+  }
 
   player    = p
   session   = sess
