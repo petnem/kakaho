@@ -653,6 +653,20 @@ async function loadQuestion(quizId, idx, startedAt) {
   }
 
   showView('question')
+
+  // After refresh: check if player already answered this question
+  const { data: prevResp } = await sb.from('responses')
+    .select('id').eq('session_id', session.id)
+    .eq('question_id', curQuestion.id).eq('player_id', player.id)
+    .maybeSingle()
+  if (prevResp) {
+    answered = true
+    document.querySelectorAll('.choice-btn').forEach(b => b.classList.add('answered'))
+    const ta = document.getElementById('text-ans'); if (ta) ta.disabled = true
+    const na = document.getElementById('num-ans'); if (na) na.disabled = true
+    document.getElementById('confirm-wrap').classList.add('hidden')
+  }
+
   startCountdown(curQuestion.time_limit, startedAt)
 }
 
