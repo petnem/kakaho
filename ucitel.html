@@ -1068,7 +1068,7 @@ async function nextQuestion() {
   document.getElementById('btn-prev-q').classList.toggle('hidden', S.currentQIdx <= 0)
 
   startTimer(q.time_limit)
-  subscribeToResponses(S.session.id, q.id)
+  subscribeToSessionAnswers(S.session.id)
 }
 
 async function prevQuestion() {
@@ -1104,7 +1104,7 @@ async function prevQuestion() {
   document.getElementById('btn-prev-q').classList.toggle('hidden', S.currentQIdx <= 0)
 
   startTimer(q.time_limit)
-  subscribeToResponses(S.session.id, q.id)
+  subscribeToSessionAnswers(S.session.id)
 }
 
 function startTimer(seconds) {
@@ -1124,17 +1124,15 @@ function startTimer(seconds) {
   }, 1000)
 }
 
-function subscribeToResponses(sessionId, questionId) {
+function subscribeToSessionAnswers(sessionId) {
   if (S.responsesSub) S.responsesSub.unsubscribe()
-  S.responsesSub = sb.channel('resp-' + questionId)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'responses', filter: `session_id=eq.${sessionId}` },
-      async () => {
-        const { count } = await sb.from('responses').select('*', { count: 'exact' })
-          .eq('session_id', sessionId).eq('question_id', questionId)
-        const cur = count || 0
+  S.responsesSub = sb.channel('sess-ans-' + sessionId)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
+      payload => {
+        const cnt = payload.new.answers_count ?? 0
         const el  = document.getElementById('ans-count')
-        if (el) el.textContent = cur
-        if (cur >= S.players.length) revealCorrectAnswers()
+        if (el) el.textContent = cnt
+        if (cnt >= S.players.length && S.players.length > 0) revealCorrectAnswers()
       })
     .subscribe()
 }
