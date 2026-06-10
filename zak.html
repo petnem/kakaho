@@ -151,6 +151,18 @@
                       border: 1.5px solid rgba(232,23,93,.25); border-radius: 10px;
                       padding: .55rem 1.1rem; font-size: .92rem; font-weight: 700; color: var(--text); }
 
+    /* ── WAITING ── */
+    .waiting-spinner {
+      width: 60px; height: 60px; border-radius: 50%;
+      border: 5px solid rgba(41,121,255,.15);
+      border-top-color: var(--blue);
+      animation: spin .9s linear infinite;
+      margin-bottom: 1.4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .waiting-label { font-size: 1.5rem; font-weight: 900; margin-bottom: .4rem; }
+    .waiting-sub   { color: var(--muted); font-size: 1rem; }
+
     /* ── LEADERBOARD ── */
     .lb-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 1rem; text-align: center; }
     .lb-list  { display: flex; flex-direction: column; gap: .5rem; }
@@ -328,6 +340,15 @@
   </div>
 </div>
 
+<!-- ═══ WAITING (po odeslání odpovědi, čekáme na odhalení) ═══ -->
+<div id="view-waiting" class="view hidden">
+  <div class="result-center">
+    <div class="waiting-spinner" aria-hidden="true"></div>
+    <div class="waiting-label">Odpověď odeslána!</div>
+    <div class="waiting-sub">Čekáme na ostatní…</div>
+  </div>
+</div>
+
 <!-- ═══ RESULT ═══ -->
 <div id="view-result" class="view hidden">
   <div class="result-center">
@@ -404,6 +425,7 @@ let questions       = null
 let curQuestion     = null
 let qStartedAt      = null
 let answered        = false
+let pendingResult   = null   // { isCorrect, timeTaken, pts } – čeká na question_revealed
 let timerInt        = null
 let sessionSub      = null
 let selectedChoices = new Set()
@@ -580,6 +602,14 @@ async function handleSessionUpdate(sess) {
   session = sess
   if (sess.status === 'active' && sess.current_question_index >= 0) {
     await loadQuestion(sess.quiz_id, sess.current_question_index, sess.question_started_at)
+    return
+  }
+  // Učitel odhalil správnou odpověď – zobrazit výsledek čekajícímu žákovi
+  if (sess.question_revealed && pendingResult) {
+    const r = pendingResult
+    pendingResult = null
+    showResult(r.isCorrect, r.timeTaken, r.pts)
+    return
   }
   if (sess.status === 'leaderboard') await showLeaderboard()
   if (sess.status === 'finished')    showFinished()
@@ -590,6 +620,7 @@ async function handleSessionUpdate(sess) {
 // ═══════════════════════════════════════════════
 async function loadQuestion(quizId, idx, startedAt) {
   answered        = false
+  pendingResult   = null
   qStartedAt      = new Date(startedAt)
   selectedChoices = new Set()
 
@@ -669,7 +700,7 @@ async function loadQuestion(quizId, idx, startedAt) {
 
   // After refresh: check if player already answered this question
   const { data: prevResp } = await sb.from('responses')
-    .select('id').eq('session_id', session.id)
+    .select('id, is_correct, time_taken, points_earned').eq('session_id', session.id)
     .eq('question_id', curQuestion.id).eq('player_id', player.id)
     .maybeSingle()
   if (prevResp) {
@@ -678,6 +709,14 @@ async function loadQuestion(quizId, idx, startedAt) {
     const ta = document.getElementById('text-ans'); if (ta) ta.disabled = true
     const na = document.getElementById('num-ans'); if (na) na.disabled = true
     document.getElementById('confirm-wrap').classList.add('hidden')
+    if (session.question_revealed) {
+      // Otázka již odhalena – rovnou výsledek
+      showResult(prevResp.is_correct, prevResp.time_taken, prevResp.points_earned)
+    } else {
+      // Čekáme na odhalení
+      pendingResult = { isCorrect: prevResp.is_correct, timeTaken: prevResp.time_taken, pts: prevResp.points_earned }
+      showView('waiting')
+    }
   }
 
   startCountdown(curQuestion.time_limit, startedAt)
@@ -695,7 +734,7 @@ function startCountdown(limit, startedAt) {
     el.style.color  = remaining < 5 ? 'var(--red)' : remaining < 10 ? 'var(--yellow)' : 'var(--accent)'
     if (remaining <= 0) {
       clearInterval(timerInt)
-      if (!answered) showResult(false, null, 0)
+      if (!answered) { answered = true; pendingResult = { isCorrect: false, timeTaken: null, pts: 0 }; showView('waiting') }
     }
   }
   tick()
@@ -797,7 +836,8 @@ async function doSubmit(choiceId, isCorrect, timeTaken, pts, textAnswer = null) 
   })
   await sb.from('players').update({ score: newScore }).eq('id', player.id)
   player.score = newScore
-  setTimeout(() => showResult(isCorrect, timeTaken, pts), 400)
+  pendingResult = { isCorrect, timeTaken, pts }
+  showView('waiting')
 }
 
 // ═══════════════════════════════════════════════

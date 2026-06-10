@@ -1183,6 +1183,7 @@ function revealCorrectAnswers() {
   if (S.correctRevealed) return
   S.correctRevealed = true
   renderLiveChoices(true)
+  sb.from('sessions').update({ question_revealed: true }).eq('id', S.session.id)
 }
 
 async function teacherShowLeaderboard() {
