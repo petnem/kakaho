@@ -719,8 +719,9 @@ function subscribeToSession(sessionId) {
 }
 
 async function handleSessionUpdate(sess) {
+  const prevQIdx = session?.current_question_index ?? -1
   session = sess
-  // Odhalení musí mít prioritu – status zůstává 'active', takže by ho přebila první podmínka
+  // Odhalení musí mít prioritu – status zůstává 'active', takže by ho přebila druhá podmínka
   if (sess.question_revealed && pendingResult) {
     const r = pendingResult
     pendingResult = null
@@ -728,7 +729,10 @@ async function handleSessionUpdate(sess) {
     return
   }
   if (sess.status === 'active' && sess.current_question_index >= 0) {
-    await loadQuestion(sess.quiz_id, sess.current_question_index, sess.question_started_at)
+    // Načti otázku jen při skutečné změně indexu – jinak jen answers_count / question_revealed update
+    if (sess.current_question_index !== prevQIdx) {
+      await loadQuestion(sess.quiz_id, sess.current_question_index, sess.question_started_at)
+    }
     return
   }
   if (sess.status === 'leaderboard') await showLeaderboard()
@@ -949,15 +953,17 @@ function submitOrdering() {
 
 async function doSubmit(choiceId, isCorrect, timeTaken, pts, textAnswer = null) {
   const newScore = (player.score || 0) + pts
+  // Nastav před await: pokud handleSessionUpdate() zachytí question_revealed dřív než await
+  // dokončí, spotřebuje pendingResult a ukáže výsledek – pak se waiting nezobrazí
+  player.score = newScore
+  pendingResult = { isCorrect, timeTaken, pts }
   await sb.from('responses').insert({
     session_id: session.id, question_id: curQuestion.id, player_id: player.id,
     choice_id: choiceId, is_correct: isCorrect, time_taken: timeTaken,
     points_earned: pts, text_answer: textAnswer
   })
   await sb.from('players').update({ score: newScore }).eq('id', player.id)
-  player.score = newScore
-  pendingResult = { isCorrect, timeTaken, pts }
-  showView('waiting')
+  if (pendingResult) showView('waiting')
 }
 
 // ═══════════════════════════════════════════════
@@ -1000,9 +1006,9 @@ function otMove(e) {
   e.preventDefault(); if (!otSrc) return
   const t = e.touches[0]
   if (otGhost) { otGhost.style.left = t.clientX - otSrc.offsetWidth/2 + 'px'; otGhost.style.top = t.clientY - 28 + 'px' }
-  otGhost.style.display = 'none'
+  if (otGhost) otGhost.style.display = 'none'
   const under = document.elementFromPoint(t.clientX, t.clientY)
-  otGhost.style.display = ''
+  if (otGhost) otGhost.style.display = ''
   document.querySelectorAll('.order-item').forEach(el => el.classList.remove('drag-over'))
   const tgt = under?.closest?.('.order-item')
   if (tgt && tgt !== otSrc) tgt.classList.add('drag-over')
