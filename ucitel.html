@@ -425,6 +425,53 @@
     .grade-known.g4 { color: var(--red); }
     .grade-known.g5 { color: var(--muted); }
 
+    /* ── Results tabs ── */
+    .res-tabs { display: flex; gap: .35rem; margin-bottom: 1.25rem; }
+    .res-tab {
+      padding: .5rem 1.1rem; border-radius: 8px;
+      border: 1px solid rgba(108,71,255,.15); background: var(--card);
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+      font-size: .9rem; font-weight: 700; color: var(--muted); transition: all .15s;
+    }
+    .res-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .res-tab:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Question analysis ── */
+    .q-analysis-card {
+      background: var(--card); border-radius: 14px; padding: 1rem 1.25rem;
+      margin-bottom: .75rem; border: 1px solid rgba(108,71,255,.08);
+      box-shadow: 0 2px 12px rgba(108,71,255,.07);
+    }
+    .qa-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
+    .qa-qnum  { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); flex-shrink: 0; padding-top: 2px; }
+    .qa-qtext { font-weight: 700; flex: 1; line-height: 1.4; }
+    .qa-stat  { font-size: .85rem; font-weight: 700; color: var(--muted); flex-shrink: 0; white-space: nowrap; }
+    .qa-bar-outer { height: 8px; background: var(--card2); border-radius: 4px; overflow: hidden; margin-bottom: .75rem; }
+    .qa-bar-inner { height: 100%; border-radius: 4px; }
+    .qa-choices { display: flex; flex-direction: column; gap: .45rem; }
+    .qa-choice-row { display: flex; align-items: center; gap: .5rem; font-size: .88rem; }
+    .qa-choice-icon { width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+                      display: flex; align-items: center; justify-content: center;
+                      font-size: .78rem; font-weight: 900; color: white; }
+    .qa-choice-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qa-choice-bar-wrap { width: 130px; flex-shrink: 0; }
+    .qa-choice-bar-outer { height: 10px; background: var(--card2); border-radius: 5px; overflow: hidden; }
+    .qa-choice-bar-fill  { height: 100%; border-radius: 5px; }
+    .qa-choice-pct { font-size: .82rem; font-weight: 700; color: var(--muted); width: 38px; text-align: right; flex-shrink: 0; }
+    .qa-text-answers { font-size: .87rem; color: var(--muted); margin-top: .25rem; line-height: 1.7; }
+
+    /* ── Player detail modal ── */
+    .pd-table { width: 100%; border-collapse: collapse; font-size: .87rem; }
+    .pd-table th { background: rgba(108,71,255,.07); padding: .5rem .7rem; text-align: left;
+                   font-size: .77rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+    .pd-table td { padding: .5rem .7rem; border-bottom: 1px solid rgba(108,71,255,.06); vertical-align: top; }
+    .pd-correct { color: var(--green); font-weight: 900; }
+    .pd-wrong   { color: var(--red);   font-weight: 900; }
+    .pd-btn { background: none; border: none; cursor: pointer; padding: .2rem .45rem;
+              color: var(--accent); font-size: .82rem; font-weight: 700;
+              border-radius: 6px; transition: background .15s; white-space: nowrap; }
+    .pd-btn:hover { background: rgba(108,71,255,.1); }
+
     /* ── True/False editor option ── */
     .tf-editor-option {
       display: flex; align-items: center; gap: .4rem;
@@ -672,23 +719,37 @@
       <span style="font-size:.85rem;color:var(--muted);">Relace:</span>
       <select id="results-session-select" onchange="switchResultsSession(this.value)"></select>
     </div>
-    <div id="results-feedback" class="hidden" style="margin-bottom:1.25rem;">
-      <div style="font-size:.85rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Zpětná vazba žáků</div>
-      <div class="feedback-stats" id="feedback-stats"></div>
+    <div class="res-tabs">
+      <button class="res-tab active" id="tab-players"   onclick="showResultsTab('players')"  >👥 Žáci</button>
+      <button class="res-tab"        id="tab-questions" onclick="showResultsTab('questions')">📊 Analýza otázek</button>
     </div>
-    <div id="results-empty" class="empty hidden"><div class="empty-icon">📊</div><div>Žádné záznamy</div></div>
-    <div style="overflow-x:auto;">
-      <table class="results-table" id="results-table">
-        <thead><tr>
-          <th data-sort="rank"     onclick="sortResults('rank')"    >#</th>
-          <th data-sort="nickname" onclick="sortResults('nickname')" >Jméno</th>
-          <th data-sort="correct"  onclick="sortResults('correct')"  >Správně</th>
-          <th data-sort="pct"      onclick="sortResults('pct')"      >Úspěšnost</th>
-          <th id="th-grade" data-sort="grade" onclick="sortResults('grade')" class="hidden">Známka</th>
-          <th data-sort="score"    onclick="sortResults('score')"    >Body</th>
-        </tr></thead>
-        <tbody id="results-body"></tbody>
-      </table>
+
+    <!-- Panel: Žáci -->
+    <div id="res-panel-players">
+      <div id="results-feedback" class="hidden" style="margin-bottom:1.25rem;">
+        <div style="font-size:.85rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Zpětná vazba žáků</div>
+        <div class="feedback-stats" id="feedback-stats"></div>
+      </div>
+      <div id="results-empty" class="empty hidden"><div class="empty-icon">📊</div><div>Žádné záznamy</div></div>
+      <div style="overflow-x:auto;">
+        <table class="results-table" id="results-table">
+          <thead><tr>
+            <th data-sort="rank"     onclick="sortResults('rank')"    >#</th>
+            <th data-sort="nickname" onclick="sortResults('nickname')" >Jméno</th>
+            <th data-sort="correct"  onclick="sortResults('correct')"  >Správně</th>
+            <th data-sort="pct"      onclick="sortResults('pct')"      >Úspěšnost</th>
+            <th id="th-grade" data-sort="grade" onclick="sortResults('grade')" class="hidden">Známka</th>
+            <th data-sort="score"    onclick="sortResults('score')"    >Body</th>
+            <th style="width:44px;"></th>
+          </tr></thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Panel: Analýza otázek -->
+    <div id="res-panel-questions" class="hidden">
+      <div id="qa-list"></div>
     </div>
   </div>
 </div>
@@ -721,6 +782,28 @@
 
 JSON: [{"type":"mc","text":"Otázka","choices":["A","B","C","D"],"correct":0,"time":20,"points":1000}]</pre>
     </details>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: PLAYER DETAIL ══════════════ -->
+<div id="modal-player-detail" class="modal-overlay hidden" onclick="if(event.target===this)closePlayerDetail()">
+  <div class="modal-card" style="max-width:720px; max-height:85vh; overflow-y:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem;">
+      <div class="modal-title" id="pd-title" style="margin-bottom:0;"></div>
+      <button class="btn btn-outline btn-sm" onclick="closePlayerDetail()">✕ Zavřít</button>
+    </div>
+    <div id="pd-summary" style="display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1rem;"></div>
+    <table class="pd-table">
+      <thead><tr>
+        <th>#</th>
+        <th>Otázka</th>
+        <th>Odpověď žáka</th>
+        <th>Výsledek</th>
+        <th>Čas</th>
+        <th>Body</th>
+      </tr></thead>
+      <tbody id="pd-body"></tbody>
+    </table>
   </div>
 </div>
 
@@ -794,6 +877,9 @@ const R = {
   totalQ:       0,
   sessions:     [],
   gradingScale: null,
+  quizId:       null,
+  responses:    [],
+  questions:    [],
 }
 
 let qType         = 'multiple_choice'
@@ -1734,19 +1820,27 @@ async function loadResults(sessionId, quizTitle, totalQ, createdAt) {
   R.quizTitle = quizTitle
   R.totalQ    = totalQ || 0
 
-  // Načti hráče, odpovědi, feedback a grading_scale kvízu najednou
+  // Načti hráče, odpovědi, feedback a session najednou
   const [{ data: players }, { data: responses }, { data: feedbacks }, sessionRow] = await Promise.all([
     sb.from('players').select('id, nickname, score, avatar').eq('session_id', sessionId),
-    sb.from('responses').select('player_id, is_correct').eq('session_id', sessionId),
+    sb.from('responses').select('player_id, question_id, choice_id, text_answer, is_correct, time_taken, points_earned').eq('session_id', sessionId),
     sb.from('feedback').select('difficulty, self_rating').eq('session_id', sessionId),
     sb.from('sessions').select('quiz_id').eq('id', sessionId).single()
   ])
 
-  // Grading scale – načti z kvízu
+  R.responses = responses || []
+  R.quizId    = sessionRow.data?.quiz_id || null
+
+  // Grading scale + otázky kvízu
   R.gradingScale = null
-  if (sessionRow.data?.quiz_id) {
-    const { data: qz } = await sb.from('quizzes').select('grading_scale').eq('id', sessionRow.data.quiz_id).single()
+  R.questions    = []
+  if (R.quizId) {
+    const [{ data: qz }, { data: qs }] = await Promise.all([
+      sb.from('quizzes').select('grading_scale').eq('id', R.quizId).single(),
+      sb.from('questions').select('id, text, type, order_index, choices(id, text, is_correct, order_index)').eq('quiz_id', R.quizId).order('order_index')
+    ])
     if (qz?.grading_scale?.enabled) R.gradingScale = qz.grading_scale
+    R.questions = qs || []
   }
   const thGrade = document.getElementById('th-grade')
   thGrade.classList.toggle('hidden', !R.gradingScale)
@@ -1791,6 +1885,7 @@ async function loadResults(sessionId, quizTitle, totalQ, createdAt) {
 
   sortResults('score')
   showView('results')
+  showResultsTab('players')
 }
 
 function sortResults(key) {
@@ -1846,7 +1941,153 @@ function renderResultsTable() {
       </td>
       ${showGrade ? `<td style="font-weight:900; font-size:1.1rem; color:${GRADE_COLOR[p.grade]||'var(--muted)'}">${p.grade}</td>` : ''}
       <td style="color:var(--accent);font-weight:900">${p.score.toLocaleString('cs-CZ')}</td>
+      <td><button class="pd-btn" onclick="openPlayerDetail('${p.id}')">🔍 Detail</button></td>
     </tr>`).join('')
+}
+
+function showResultsTab(tab) {
+  document.getElementById('res-panel-players').classList.toggle('hidden', tab !== 'players')
+  document.getElementById('res-panel-questions').classList.toggle('hidden', tab !== 'questions')
+  document.getElementById('tab-players').classList.toggle('active', tab === 'players')
+  document.getElementById('tab-questions').classList.toggle('active', tab === 'questions')
+  if (tab === 'questions') renderQuestionsPanel()
+}
+
+function renderQuestionsPanel() {
+  const list = document.getElementById('qa-list')
+  if (!R.questions.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">❓</div><div>Otázky nejsou dostupné</div></div>'
+    return
+  }
+
+  const MC_COLORS = ['#e74c3c','#2980b9','#e67e22','#27ae60']
+  const MC_ICONS  = ['▲','◆','●','■']
+
+  list.innerHTML = R.questions.map((q, qi) => {
+    const qResps  = R.responses.filter(r => r.question_id === q.id)
+    const total   = qResps.length
+    const correct = qResps.filter(r => r.is_correct).length
+    const pct     = total > 0 ? Math.round(correct / total * 100) : 0
+    const qType   = q.type || 'multiple_choice'
+    const barColor = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--yellow)' : 'var(--red)'
+
+    let detailHtml = ''
+
+    if (qType === 'multiple_choice' || qType === 'true_false') {
+      const sorted = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+      const icons  = qType === 'true_false' ? ['✓','✗'] : MC_ICONS
+      const colors = qType === 'true_false' ? ['var(--green)','var(--red)'] : MC_COLORS
+      const countMap = {}
+      sorted.forEach(c => countMap[c.id] = 0)
+      qResps.forEach(r => { if (r.choice_id && countMap[r.choice_id] !== undefined) countMap[r.choice_id]++ })
+      detailHtml = `<div class="qa-choices">${sorted.map((c, ci) => {
+        const cnt  = countMap[c.id] || 0
+        const cpct = total > 0 ? Math.round(cnt / total * 100) : 0
+        const fillColor = c.is_correct ? 'var(--green)' : 'rgba(255,59,92,.55)'
+        return `<div class="qa-choice-row">
+          <div class="qa-choice-icon" style="background:${colors[ci]}">${icons[ci]}</div>
+          <span class="qa-choice-text" title="${esc(c.text)}">${esc(c.text)}</span>
+          <div class="qa-choice-bar-wrap">
+            <div class="qa-choice-bar-outer">
+              <div class="qa-choice-bar-fill" style="width:${cpct}%; background:${fillColor}"></div>
+            </div>
+          </div>
+          <span class="qa-choice-pct">${cpct} %</span>
+          <span style="width:16px; text-align:center; font-size:.82rem; color:${c.is_correct ? 'var(--green)' : 'transparent'}">✓</span>
+        </div>`
+      }).join('')}</div>`
+
+    } else if (qType === 'text' || qType === 'numeric') {
+      const ansMap = {}
+      qResps.forEach(r => { const a = (r.text_answer || '').trim(); if (a) ansMap[a] = (ansMap[a] || 0) + 1 })
+      const topAnswers = Object.entries(ansMap).sort((a,b) => b[1]-a[1]).slice(0, 10)
+      const correctAns = (q.choices || []).find(c => c.is_correct)?.text || ''
+      detailHtml = `<div class="qa-text-answers">
+        ${correctAns ? `<strong>Správná odpověď:</strong> ${esc(correctAns)}<br>` : ''}
+        ${topAnswers.length ? `<strong>Odpovědi žáků:</strong> ${topAnswers.map(([a,n]) => `<em>${esc(a)}</em> (${n}×)`).join(', ')}` : '<em>Žádné odpovědi</em>'}
+      </div>`
+
+    } else if (qType === 'ordering') {
+      const sorted = (q.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+      detailHtml = `<div class="qa-text-answers">
+        <strong>Správné pořadí:</strong> ${sorted.map((c,i) => `${i+1}. ${esc(c.text)}`).join(' → ')}
+      </div>`
+    }
+
+    return `<div class="q-analysis-card">
+      <div class="qa-header">
+        <span class="qa-qnum">Q${qi+1}</span>
+        <span class="qa-qtext">${esc(q.text)}</span>
+        <span class="qa-stat">${correct}/${total} &nbsp;<strong style="color:${barColor}">${pct} %</strong></span>
+      </div>
+      <div class="qa-bar-outer"><div class="qa-bar-inner" style="width:${pct}%; background:${barColor}"></div></div>
+      ${detailHtml}
+    </div>`
+  }).join('')
+}
+
+function openPlayerDetail(playerId) {
+  const p = R.players.find(x => x.id === playerId)
+  if (!p) return
+
+  document.getElementById('pd-title').textContent = `${p.avatar || '🎮'} ${p.nickname} – detail odpovědí`
+
+  document.getElementById('pd-summary').innerHTML = `
+    <div class="feedback-stat">
+      <div class="feedback-stat-val">${p.correct} / ${p.total}</div>
+      <div class="feedback-stat-lbl">Správně</div>
+    </div>
+    <div class="feedback-stat">
+      <div class="feedback-stat-val">${p.pct} %</div>
+      <div class="feedback-stat-lbl">Úspěšnost</div>
+    </div>
+    <div class="feedback-stat">
+      <div class="feedback-stat-val" style="color:var(--accent)">${p.score.toLocaleString('cs-CZ')}</div>
+      <div class="feedback-stat-lbl">Body celkem</div>
+    </div>
+    ${p.grade ? `<div class="feedback-stat"><div class="feedback-stat-val" style="color:${GRADE_COLOR[p.grade]||'var(--muted)'}">${p.grade}</div><div class="feedback-stat-lbl">Známka</div></div>` : ''}`
+
+  const pResps = R.responses.filter(r => r.player_id === playerId)
+    .slice().sort((a, b) => {
+      const qa = R.questions.findIndex(q => q.id === a.question_id)
+      const qb = R.questions.findIndex(q => q.id === b.question_id)
+      return qa - qb
+    })
+
+  document.getElementById('pd-body').innerHTML = pResps.map(r => {
+    const q = R.questions.find(x => x.id === r.question_id)
+    if (!q) return ''
+    const qIdx  = R.questions.indexOf(q) + 1
+    const qType = q.type || 'multiple_choice'
+
+    let answerDisplay = '—'
+    if (qType === 'text' || qType === 'numeric') {
+      answerDisplay = r.text_answer ? esc(r.text_answer) : '—'
+    } else if (qType === 'ordering') {
+      answerDisplay = r.text_answer ? esc(r.text_answer) : '—'
+    } else {
+      const choice = (q.choices || []).find(c => c.id === r.choice_id)
+      answerDisplay = choice ? esc(choice.text) : '—'
+    }
+
+    const timeTxt = r.time_taken != null ? r.time_taken.toFixed(1) + ' s' : '—'
+    const pts     = (r.points_earned || 0).toLocaleString('cs-CZ')
+
+    return `<tr>
+      <td style="color:var(--muted)">${qIdx}</td>
+      <td style="max-width:220px; word-break:break-word">${esc(q.text)}</td>
+      <td style="max-width:180px; word-break:break-word">${answerDisplay}</td>
+      <td class="${r.is_correct ? 'pd-correct' : 'pd-wrong'}">${r.is_correct ? '✓ Správně' : '✗ Špatně'}</td>
+      <td style="color:var(--muted); white-space:nowrap">${timeTxt}</td>
+      <td style="font-weight:700; color:var(--accent); white-space:nowrap">+${pts}</td>
+    </tr>`
+  }).join('')
+
+  document.getElementById('modal-player-detail').classList.remove('hidden')
+}
+
+function closePlayerDetail() {
+  document.getElementById('modal-player-detail').classList.add('hidden')
 }
 
 function exportResultsCsv() {
