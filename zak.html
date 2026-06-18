@@ -552,6 +552,7 @@ let selectedChoices = new Set()
 let selectedAvatar  = '🎮'
 let feedbackDiff    = 0
 let feedbackSelf    = 0
+let activeLoadVer   = 0      // verzí guard – zabrání souběžným volání loadQuestion
 
 // ═══════════════════════════════════════════════
 //  AVATAR
@@ -743,6 +744,7 @@ async function handleSessionUpdate(sess) {
 //  OTÁZKA
 // ═══════════════════════════════════════════════
 async function loadQuestion(quizId, idx, startedAt) {
+  const myVer = ++activeLoadVer
   answered        = false
   pendingResult   = null
   qStartedAt      = new Date(startedAt)
@@ -751,6 +753,7 @@ async function loadQuestion(quizId, idx, startedAt) {
   if (!questions) {
     const { data: qs } = await sb.from('questions')
       .select('*, choices(*)').eq('quiz_id', quizId).order('order_index')
+    if (myVer !== activeLoadVer) return
     questions = qs
   }
   curQuestion = questions[idx]
@@ -787,19 +790,19 @@ async function loadQuestion(quizId, idx, startedAt) {
     choicesEl.innerHTML = `
       <div class="text-answer-wrap">
         <input type="text" id="text-ans" placeholder="Napiš odpověď…"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                onkeydown="if(event.key==='Enter') submitTextAnswer()">
         <button class="btn btn-success" onclick="submitTextAnswer()">Odeslat →</button>
       </div>`
-    setTimeout(() => document.getElementById('text-ans')?.focus(), 120)
 
   } else if (qType === 'numeric') {
     choicesEl.innerHTML = `
       <div class="text-answer-wrap">
-        <input type="number" id="num-ans" step="any" placeholder="Zadej číslo…"
+        <input type="text" inputmode="decimal" id="num-ans" placeholder="Zadej číslo…"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                onkeydown="if(event.key==='Enter') submitNumericAnswer()">
         <button class="btn btn-success" onclick="submitNumericAnswer()">Odeslat →</button>
       </div>`
-    setTimeout(() => document.getElementById('num-ans')?.focus(), 120)
 
   } else if (qType === 'ordering') {
     const shuffled = [...sorted].sort(() => Math.random() - 0.5)
@@ -820,13 +823,13 @@ async function loadQuestion(quizId, idx, startedAt) {
       </div>`
   }
 
-  showView('question')
-
-  // After refresh: check if player already answered this question
+  // Check if player already answered this question (page refresh / rejoin)
   const { data: prevResp } = await sb.from('responses')
     .select('id, is_correct, time_taken, points_earned').eq('session_id', session.id)
     .eq('question_id', curQuestion.id).eq('player_id', player.id)
     .maybeSingle()
+  if (myVer !== activeLoadVer) return
+
   if (prevResp) {
     answered = true
     document.querySelectorAll('.choice-btn').forEach(b => b.classList.add('answered'))
@@ -834,15 +837,17 @@ async function loadQuestion(quizId, idx, startedAt) {
     const na = document.getElementById('num-ans'); if (na) na.disabled = true
     document.getElementById('confirm-wrap').classList.add('hidden')
     if (session.question_revealed) {
-      // Otázka již odhalena – rovnou výsledek
       showResult(prevResp.is_correct, prevResp.time_taken, prevResp.points_earned)
     } else {
-      // Čekáme na odhalení
       pendingResult = { isCorrect: prevResp.is_correct, timeTaken: prevResp.time_taken, pts: prevResp.points_earned }
       showView('waiting')
     }
+    return
   }
 
+  showView('question')
+  if (qType === 'text')    setTimeout(() => document.getElementById('text-ans')?.focus(), 120)
+  if (qType === 'numeric') setTimeout(() => document.getElementById('num-ans')?.focus(), 120)
   startCountdown(curQuestion.time_limit, startedAt)
 }
 
@@ -1046,12 +1051,19 @@ function showResult(isCorrect, timeTaken, pts) {
   }
   const correctEl = document.getElementById('res-correct')
   if (!isCorrect && curQuestion) {
-    const correct = (curQuestion.choices || []).find(c => c.is_correct)
-    if (correct) {
-      correctEl.textContent = '✓ Správná odpověď: ' + correct.text
+    const qType = curQuestion.type || 'multiple_choice'
+    if (qType === 'ordering') {
+      const ordered = (curQuestion.choices || []).slice().sort((a,b) => a.order_index - b.order_index)
+      correctEl.innerHTML = '✓ Správné pořadí: ' + ordered.map((c,i) => `${i+1}. ${esc(c.text)}`).join(' → ')
       correctEl.classList.remove('hidden')
     } else {
-      correctEl.classList.add('hidden')
+      const correct = (curQuestion.choices || []).find(c => c.is_correct)
+      if (correct) {
+        correctEl.textContent = '✓ Správná odpověď: ' + correct.text
+        correctEl.classList.remove('hidden')
+      } else {
+        correctEl.classList.add('hidden')
+      }
     }
   } else {
     correctEl.classList.add('hidden')
@@ -1090,12 +1102,20 @@ async function showLeaderboard() {
 //  OBNOVA PO REFRESHI
 // ═══════════════════════════════════════════════
 async function rejoinSession(state) {
-  const [{ data: p }, { data: sess }] = await Promise.all([
+  const [{ data: p }, { data: sess }, { data: resps }] = await Promise.all([
     sb.from('players').select('*').eq('id', state.playerId).single(),
-    sb.from('sessions').select('*').eq('id', state.sessionId).single()
+    sb.from('sessions').select('*').eq('id', state.sessionId).single(),
+    sb.from('responses').select('points_earned').eq('session_id', state.sessionId).eq('player_id', state.playerId)
   ])
 
   if (!p || !sess) { sessionStorage.removeItem('kv_player'); return }
+
+  // Recalculate score from responses – guards against score loss when DB update didn't complete before disconnect
+  const calcScore = (resps || []).reduce((s, r) => s + (r.points_earned || 0), 0)
+  if (calcScore > (p.score || 0)) {
+    p.score = calcScore
+    sb.from('players').update({ score: calcScore }).eq('id', p.id)
+  }
 
   player    = p
   session   = sess
