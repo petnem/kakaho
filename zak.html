@@ -863,7 +863,15 @@ function startCountdown(limit, startedAt) {
     el.style.color  = remaining < 5 ? 'var(--red)' : remaining < 10 ? 'var(--yellow)' : 'var(--accent)'
     if (remaining <= 0) {
       clearInterval(timerInt)
-      if (!answered) { answered = true; pendingResult = { isCorrect: false, timeTaken: null, pts: 0 }; showView('waiting') }
+      if (!answered) {
+        answered = true
+        pendingResult = { isCorrect: false, timeTaken: null, pts: 0 }
+      }
+      if (pendingResult) {
+        const r = pendingResult
+        pendingResult = null
+        showResult(r.isCorrect, r.timeTaken, r.pts)
+      }
     }
   }
   tick()
@@ -900,7 +908,6 @@ function confirmMultiAnswer() {
 async function submitAnswer(choiceIds) {
   if (answered) return
   answered = true
-  clearInterval(timerInt)
   document.getElementById('confirm-wrap').classList.add('hidden')
 
   const choices     = curQuestion.choices || []
@@ -925,7 +932,7 @@ function submitTextAnswer() {
   const isOk    = val.toLowerCase() === correct.toLowerCase()
   const t       = (Date.now() - qStartedAt) / 1000
   const pts     = isOk ? calcPoints(curQuestion.time_limit, t, curQuestion.points) : 0
-  answered = true; clearInterval(timerInt)
+  answered = true
   doSubmit(null, isOk, t, pts, val)
 }
 
@@ -938,7 +945,7 @@ function submitNumericAnswer() {
   const isOk    = Math.abs(parseFloat(val) - correct) <= tol
   const t       = (Date.now() - qStartedAt) / 1000
   const pts     = isOk ? calcPoints(curQuestion.time_limit, t, curQuestion.points) : 0
-  answered = true; clearInterval(timerInt)
+  answered = true
   doSubmit(null, isOk, t, pts, val)
 }
 
@@ -952,7 +959,7 @@ function submitOrdering() {
   const isOk = studentOrder.every((id, i) => id === correctOrder[i])
   const t    = (Date.now() - qStartedAt) / 1000
   const pts  = isOk ? calcPoints(curQuestion.time_limit, t, curQuestion.points) : 0
-  answered = true; clearInterval(timerInt)
+  answered = true
   doSubmit(null, isOk, t, pts, JSON.stringify(studentOrder))
 }
 
@@ -1081,6 +1088,8 @@ function calcPoints(limit, taken, base) {
 //  ŽEBŘÍČEK
 // ═══════════════════════════════════════════════
 async function showLeaderboard() {
+  clearInterval(timerInt)
+  pendingResult = null
   const { data: players } = await sb.from('players')
     .select('id, nickname, score, avatar').eq('session_id', session.id)
     .order('score', { ascending: false }).limit(10)
