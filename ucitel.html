@@ -131,7 +131,7 @@
       display: block; font-size: .85rem; font-weight: 700; color: var(--muted);
       margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .05em;
     }
-    input[type="text"], input[type="number"], textarea {
+    input[type="text"], input[type="number"], input[type="email"], input[type="password"], textarea {
       width: 100%; background: var(--card2); border: 1px solid rgba(108,71,255,.15);
       border-radius: 8px; padding: .7rem .9rem; color: var(--text);
       font-family: 'Nunito', sans-serif; font-size: 1rem; outline: none;
@@ -479,6 +479,26 @@
       cursor: pointer; font-weight: 700; font-size: .95rem;
     }
     .tf-editor-option input { width: auto; }
+
+    /* ── Login view ── */
+    .login-card {
+      background: var(--card); border-radius: 16px; padding: 2rem;
+      margin-top: 3rem;
+      box-shadow: 0 8px 40px rgba(108,71,255,.15), 0 1px 0 rgba(108,71,255,.06) inset;
+      border: 1px solid rgba(108,71,255,.1);
+    }
+    .login-icon { font-size: 2.5rem; text-align: center; margin-bottom: .75rem; }
+    .login-title { font-size: 1.4rem; font-weight: 900; text-align: center; margin-bottom: 1.5rem; color: var(--text); }
+    .login-error {
+      color: var(--red); font-size: .85rem; margin-bottom: .75rem;
+      padding: .5rem .75rem; background: rgba(255,59,92,.08);
+      border-radius: 8px; border: 1px solid rgba(255,59,92,.2);
+    }
+
+    /* ── Admin panel ── */
+    .admin-section { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 2px solid rgba(108,71,255,.1); }
+    .teacher-chip-active   { color: var(--green); font-weight: 700; font-size: .8rem; }
+    .teacher-chip-inactive { color: var(--red);   font-weight: 700; font-size: .8rem; }
   </style>
 </head>
 <body>
@@ -490,10 +510,39 @@
   <div class="deco-ring dr3"></div>
 </div>
 
-<!-- ══════════════ VIEW: DASHBOARD ══════════════ -->
-<div id="view-dashboard" class="view">
+<!-- ══════════════ VIEW: LOGIN ══════════════ -->
+<div id="view-login" class="view hidden">
   <div class="header">
     <div class="logo">Kvíz<span>App</span></div>
+  </div>
+  <div class="content" style="max-width:420px;">
+    <div class="login-card">
+      <div class="login-icon">🎓</div>
+      <div class="login-title">Přihlášení učitele</div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="vas@email.cz" autocomplete="email"
+               onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+      </div>
+      <div class="form-group">
+        <label>Heslo</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') signIn()">
+      </div>
+      <div id="login-error" class="login-error hidden"></div>
+      <button class="btn btn-primary btn-block" id="login-btn" onclick="signIn()">Přihlásit se →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ VIEW: DASHBOARD ══════════════ -->
+<div id="view-dashboard" class="view hidden">
+  <div class="header">
+    <div class="logo">Kvíz<span>App</span></div>
+    <div style="display:flex; align-items:center; gap:.6rem;">
+      <span id="user-email-display" style="font-size:.8rem; color:rgba(255,255,255,.65); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+      <button class="back-btn" onclick="signOut()">↩ Odhlásit</button>
+    </div>
   </div>
   <div class="content">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
@@ -515,6 +564,39 @@
 
     <div id="quiz-list" class="quiz-list">
       <div class="empty"><div class="empty-icon">⏳</div><div>Načítám…</div></div>
+    </div>
+
+    <!-- Admin section – visible only to admin role -->
+    <div id="admin-section" class="admin-section hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <div class="section-title" style="margin:0;">👨‍💼 Správa učitelů</div>
+        <button class="btn btn-primary btn-sm" onclick="toggleNewTeacherForm()">+ Nový učitel</button>
+      </div>
+
+      <div id="new-teacher-form" class="editor-card hidden" style="margin-bottom:1rem;">
+        <div class="row-2">
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="new-teacher-email" placeholder="ucitel@skola.cz">
+          </div>
+          <div class="form-group">
+            <label>Celé jméno</label>
+            <input type="text" id="new-teacher-name" placeholder="Mgr. Jana Nováková">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Heslo</label>
+          <input type="password" id="new-teacher-password" placeholder="min. 6 znaků">
+        </div>
+        <div style="display:flex; gap:.5rem;">
+          <button class="btn btn-success" onclick="createTeacher()">Vytvořit účet</button>
+          <button class="btn btn-outline" onclick="toggleNewTeacherForm()">Zrušit</button>
+        </div>
+      </div>
+
+      <div id="teacher-list" class="quiz-list">
+        <div class="empty"><div class="empty-icon">👩‍🏫</div><div>Žádní učitelé</div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -885,6 +967,9 @@ const R = {
 let qType         = 'multiple_choice'
 let orderingItems = ['', '', '']
 let EQ = { id: null, origImageUrl: null, newImageUrl: undefined, type: 'multiple_choice', orderingItems: [] }
+
+let currentUser    = null
+let currentProfile = null
 
 // ═══════════════════════════════════════════════
 //  NAVIGACE
@@ -2322,8 +2407,157 @@ async function confirmImport() {
   showToast(`Importováno ${importParsed.length} otázek ✓`)
 }
 
+// ═══════════════════════════════════════════════
+//  AUTENTIZACE
+// ═══════════════════════════════════════════════
+async function initAuth() {
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (session) {
+      currentUser = session.user
+      await onSignedIn()
+    } else {
+      currentUser    = null
+      currentProfile = null
+      document.getElementById('admin-section').classList.add('hidden')
+      showView('login')
+    }
+  })
+  const { data: { session } } = await sb.auth.getSession()
+  if (!session) showView('login')
+}
+
+async function onSignedIn() {
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single()
+  currentProfile = profile
+
+  if (!profile?.active) {
+    showToast('Účet je deaktivován. Kontaktujte administrátora.')
+    await sb.auth.signOut()
+    return
+  }
+
+  document.getElementById('user-email-display').textContent = currentUser.email
+
+  if (profile?.role === 'admin') {
+    document.getElementById('admin-section').classList.remove('hidden')
+    await loadTeachers()
+  } else {
+    document.getElementById('admin-section').classList.add('hidden')
+  }
+
+  showView('dashboard')
+  await loadQuizzes()
+}
+
+async function signIn() {
+  const email    = document.getElementById('login-email').value.trim()
+  const password = document.getElementById('login-password').value
+  const errEl    = document.getElementById('login-error')
+  const btn      = document.getElementById('login-btn')
+
+  errEl.classList.add('hidden')
+  if (!email || !password) {
+    errEl.textContent = 'Vyplň e-mail a heslo'
+    errEl.classList.remove('hidden')
+    return
+  }
+
+  btn.disabled = true
+  btn.textContent = 'Přihlašuji…'
+  const { error } = await sb.auth.signInWithPassword({ email, password })
+  btn.disabled = false
+  btn.textContent = 'Přihlásit se →'
+
+  if (error) {
+    errEl.textContent = 'Neplatný e-mail nebo heslo'
+    errEl.classList.remove('hidden')
+  }
+}
+
+async function signOut() {
+  await sb.auth.signOut()
+}
+
+// ═══════════════════════════════════════════════
+//  SPRÁVA UČITELŮ (admin)
+// ═══════════════════════════════════════════════
+async function loadTeachers() {
+  const { data } = await sb.from('profiles')
+    .select('id, email, full_name, active, created_at')
+    .eq('role', 'teacher')
+    .order('created_at')
+  const list = document.getElementById('teacher-list')
+  if (!list) return
+  if (!data?.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">👩‍🏫</div><div>Žádní učitelé. Vytvořte první!</div></div>'
+    return
+  }
+  list.innerHTML = data.map(t => `
+    <div class="quiz-card">
+      <div>
+        <div class="quiz-card-title">${esc(t.full_name || t.email)}</div>
+        <div class="quiz-card-meta">${esc(t.email)} ·
+          <span class="${t.active ? 'teacher-chip-active' : 'teacher-chip-inactive'}">${t.active ? '✓ Aktivní' : '✗ Neaktivní'}</span>
+        </div>
+      </div>
+      <div class="quiz-card-actions">
+        <button class="btn ${t.active ? 'btn-danger' : 'btn-success'} btn-sm"
+                onclick="toggleTeacherActive('${t.id}', ${!!t.active})">
+          ${t.active ? 'Deaktivovat' : 'Aktivovat'}
+        </button>
+      </div>
+    </div>`).join('')
+}
+
+function toggleNewTeacherForm() {
+  const form = document.getElementById('new-teacher-form')
+  const isHidden = form.classList.toggle('hidden')
+  if (!isHidden) document.getElementById('new-teacher-email').focus()
+}
+
+async function createTeacher() {
+  const email    = document.getElementById('new-teacher-email').value.trim()
+  const name     = document.getElementById('new-teacher-name').value.trim()
+  const password = document.getElementById('new-teacher-password').value
+
+  if (!email || !password)  { showToast('Vyplň e-mail a heslo'); return }
+  if (password.length < 6)  { showToast('Heslo musí mít alespoň 6 znaků'); return }
+
+  showToast('Vytvářím účet…')
+
+  const { data: { session } } = await sb.auth.getSession()
+  let res
+  try {
+    res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-teacher`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ email, password, full_name: name })
+    })
+  } catch(e) {
+    showToast('Síťová chyba'); return
+  }
+
+  const result = await res.json()
+  if (!res.ok) { showToast('Chyba: ' + (result.error || 'Neznámá chyba')); return }
+
+  showToast('Učitel vytvořen ✓')
+  document.getElementById('new-teacher-email').value    = ''
+  document.getElementById('new-teacher-name').value     = ''
+  document.getElementById('new-teacher-password').value = ''
+  document.getElementById('new-teacher-form').classList.add('hidden')
+  await loadTeachers()
+}
+
+async function toggleTeacherActive(id, currentlyActive) {
+  await sb.from('profiles').update({ active: !currentlyActive }).eq('id', id)
+  await loadTeachers()
+}
+
 // Start
-loadQuizzes()
+initAuth()
 </script>
 </body>
 </html>
