@@ -2403,7 +2403,7 @@ async function confirmImport() {
   }
 
   closeImportModal()
-  await loadEditor(S.currentQuiz.id)
+  await openEditor(S.currentQuiz.id)
   showToast(`Importováno ${importParsed.length} otázek ✓`)
 }
 
